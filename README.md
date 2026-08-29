@@ -13,8 +13,8 @@ The point is the gap. A model that is shown the market price first will anchor o
 | Stage | What happens | Market price visible to the model? |
 |---|---|---|
 | 1. Fetch | The exact question, description and resolution criteria are pulled from Polymarket. | — |
-| 2. Research | The model searches the web: latest news, primary sources, historical base rates, evidence for YES, evidence for NO, and what it does not know. Runs N times in parallel if you ask for more than one. | **No** |
-| 3. Estimate | Each run commits to a probability from 0–100% with a confidence level; the runs are averaged. | **No** |
+| 2. Research | **Once per analysis**, with web search: latest news, primary sources, base rates, evidence for YES, evidence for NO, and open questions. Produces a brief with deliberately no probability in it. | **No** |
+| 3. Estimate | N independent calls judge that same brief and each commits to a probability; the results are averaged. | **No** |
 | 4. Reveal | The Polymarket probability is disclosed. | Yes |
 | 5. Review | It reviews the discrepancy under instructions that treat an unexplained gap as a *finding*, not an error — revision requires naming a specific reason. | Yes |
 
@@ -55,14 +55,22 @@ question and event title. Replace it wholesale with `MARKET_EXCLUDE_KEYWORDS`
 
 ### Averaging several runs
 
-A single LLM forecast is noisy — the same question asked twice can differ by 15 points. The **runs** selector on the dashboard runs N independent forecasts *in parallel* and averages them.
+A single LLM forecast is noisy — the same question asked twice can differ by 15 points. The **runs** selector runs N estimates and averages them.
 
-- Each run is a separate request that cannot see the others, so the runs are genuinely independent rather than one model talking itself into a number.
-- They are issued concurrently, so 5 runs take roughly the wall time of 1 — but **cost 5×**.
-- Failures are tolerated: if 4 of 5 return, the analysis proceeds on those 4 and records that one failed.
-- The result reports mean, median, range and **standard deviation**. The σ is the useful part: it measures how much the model disagrees *with itself*, which is a different question from the confidence it reports about the world. A tight spread that still disagrees with the market is a much stronger signal than a wide one.
-- Evidence, uncertainties and sources are pooled across all runs; the narrative reasoning is taken from the run nearest the mean, so the prose stays consistent with its number rather than being stitched together.
-- The spread is passed to the discrepancy review, which is told to treat a wide spread as grounds for holding the estimate loosely.
+**The web research happens once and is shared.** Searching the web N times would be slow and expensive for very little gain, since each search returns much the same material. So one research pass builds the evidence brief, and every estimate run judges that same brief:
+
+```
+research (1 web call, slow) → estimate ×N (parallel, no web, fast) → review (1 call)
+```
+
+- 5 runs means **one** web search, not five. Verified: 5 runs issue exactly 1 search-enabled call.
+- The estimate calls run concurrently and skip search, so extra runs add little time.
+- Failures are tolerated: if 4 of 5 return, the analysis proceeds on those 4 and records the failure.
+- Estimates run at a higher temperature (`OPENROUTER_ESTIMATE_TEMPERATURE`, default 0.8) than research and review (0.2). On a fixed evidence base, sampling is the only remaining source of variation — at a low temperature the runs would collapse onto one number and the spread would mean nothing.
+
+**What the spread does and does not tell you.** Because the runs share an evidence base, the standard deviation measures how much the model's *judgement* varies on fixed evidence — not how much its *research* varies. That is a narrower claim than "N independent forecasts agreed", and the UI says so rather than implying the stronger one. It is still the useful number: a tight spread that nonetheless disagrees with the market is a stronger signal than a wide one, and the spread is passed to the review stage, which is told to hold a widely-spread mean loosely.
+
+The brief contains **no probability** by construction — a number there would anchor every run to it and destroy the point of sampling. The narrative reasoning shown comes from the run nearest the mean, so the prose stays consistent with its number instead of being stitched together.
 
 Set the default with `ANALYSIS_SAMPLE_RUNS` (default `1`); users can override it per research run in the UI, up to `ANALYSIS_MAX_SAMPLE_RUNS` (default `8`).
 
@@ -116,7 +124,7 @@ Any id from [openrouter.ai/models](https://openrouter.ai/models) works. Pick a m
 
 ### Function duration
 
-`POST /api/analyze` sets `maxDuration = 300`, since a research-backed run makes N + 1 LLM calls and typically takes 30–120 seconds. Parallel runs overlap, so raising the run count costs money rather than time. 300s is the Fluid Compute ceiling on Vercel's Hobby plan. If your plan or host caps function duration lower, reduce `maxDuration` in `src/app/api/analyze/route.ts` and lower `OPENROUTER_TIMEOUT_MS` to match.
+`POST /api/analyze` sets `maxDuration = 300`. A run typically takes 30–120 seconds, nearly all of it the single web-research call; the estimate calls are parallel and searchless, so raising the run count barely moves the total. 300s is the Fluid Compute ceiling on Vercel's Hobby plan. If your plan or host caps function duration lower, reduce `maxDuration` in `src/app/api/analyze/route.ts` and lower `OPENROUTER_TIMEOUT_MS` to match.
 
 The route streams NDJSON progress events, so the user sees each stage as it happens rather than a spinner that might be dead.
 
@@ -145,6 +153,22 @@ src/
     ├── format.ts                   Shared display formatting
     └── store/                      Append-only persistence (3 drivers)
 ```
+
+### Interface
+
+Dark, glass-forward, and built mobile-first: a bottom tab bar on phones, a
+sticky search bar, and results in a bottom sheet (a right-hand panel on
+desktop) split into **Summary / Evidence / Sources** so the numbers and
+reasoning answer the question without scrolling past everything else.
+
+The blur is deliberately rationed. `backdrop-filter` is applied to exactly
+three fixed elements — app bar, tab bar, sheet — while cards use layered
+translucency with no filter, because a blur behind every card in a scrolling
+list drops frames on phones. The blur classes come from Tailwind rather than
+hand-written CSS: hand-written declarations compiled down to
+`-webkit-backdrop-filter` alone, which would have left Firefox with a
+see-through bar and text scrolling visibly behind it. Browsers without
+`backdrop-filter` at all fall back to a near-opaque bar.
 
 ### Security
 
@@ -196,6 +220,6 @@ npm run typecheck  # tsc --noEmit
 
 - **Search scope.** Gamma's `/markets` endpoint has no text-query parameter, so search scans a bounded pool (500) of the highest-volume active markets and filters locally. It finds active, liquid markets well; it will not find an obscure long-tail market.
 - **Binary markets only.** The workflow forecasts one YES probability, so multi-outcome markets are filtered out of listings.
-- **Cost.** Each analysis is N + 1 LLM calls (N parallel blind forecasts plus one review), the blind ones with web search. Cost depends entirely on `OPENROUTER_MODEL` and your runs setting — check pricing on OpenRouter before running many analyses at 5×.
+- **Cost.** Each analysis is N + 2 LLM calls: one research call (the only one that searches the web), N estimate calls, and one review. The search call dominates the cost, and there is only ever one, so raising the run count is far cheaper than it looks. Check your model's pricing on OpenRouter regardless.
 - **Calibration is not verified.** TrueOdds records forecasts; it does not yet score them against resolved outcomes. Every record stores the market price at analysis time, so retrospective scoring is possible once markets resolve.
 - **These are model estimates, not advice.** A confident-looking probability with cited sources can still be wrong.

@@ -24,7 +24,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-5 sm:gap-8">
-      <section className="panel flex flex-col gap-3 p-4 sm:gap-4 sm:p-6">
+      <section className="glass flex flex-col gap-3 p-4 sm:gap-4 sm:p-6">
         {/* Status chips scroll sideways rather than wrapping to three rows. */}
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 sm:mx-0 sm:flex-wrap sm:px-0">
           <Badge tone="brand" className="shrink-0">

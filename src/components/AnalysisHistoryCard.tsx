@@ -15,12 +15,12 @@ export function AnalysisHistoryCard({ analysis }: { analysis: Analysis }) {
   const bandTone = band === "aligned" ? "neutral" : band === "moderate" ? "warn" : "no";
 
   return (
-    <article className="panel min-w-0 overflow-hidden">
+    <article className="glass min-w-0 overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
-        className="flex w-full items-start gap-3 p-4 text-left transition hover:bg-surface-2/40 sm:gap-4 sm:p-5"
+        className="flex w-full items-start gap-3 p-4 text-left transition hover:bg-white/[0.04] sm:gap-4 sm:p-5"
       >
         <div className="min-w-0 flex-1">
           <p className="text-xs text-ink-3">{formatDateTime(analysis.createdAt)}</p>
@@ -42,7 +42,7 @@ export function AnalysisHistoryCard({ analysis }: { analysis: Analysis }) {
       </button>
 
       {open ? (
-        <div className="hairline border-t px-4 py-5 sm:px-5">
+        <div className="border-t border-white/[0.08] px-4 py-5 sm:px-5">
           <AnalysisResult analysis={analysis} />
           {analysis.marketUrl ? (
             <a

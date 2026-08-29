@@ -268,7 +268,7 @@ export function MarketBrowser({
         Sticky under the app bar on phones, so search and sorting stay reachable
         while scrolling a long market list. Static from `sm` upwards.
       */}
-      <div className="sticky top-14 z-30 -mx-4 flex flex-col gap-2 border-b border-surface-3/40 bg-surface-0 px-4 py-2.5 sm:static sm:mx-0 sm:flex-row sm:items-center sm:gap-3 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
+      <div className="glass-blur backdrop-blur-xl backdrop-saturate-150 sticky top-14 z-30 -mx-4 flex flex-col gap-2 border-b border-white/[0.07] px-4 py-2.5 sm:static sm:mx-0 sm:flex-row sm:items-center sm:gap-3 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none sm:backdrop-saturate-100">
         <label className="relative flex-1">
           <span className="sr-only">Search markets</span>
           <svg
@@ -285,7 +285,7 @@ export function MarketBrowser({
             value={rawQuery}
             onChange={(event) => setRawQuery(event.target.value)}
             placeholder="Search markets…"
-            className="h-11 w-full rounded-xl border border-surface-3/70 bg-surface-1/70 pl-9 pr-3 text-ink-0 placeholder:text-ink-3 focus:border-brand/60 sm:h-10 sm:text-sm"
+            className="h-11 w-full rounded-xl border border-white/[0.1] bg-white/[0.05] pl-9 pr-3 text-ink-0 placeholder:text-ink-3 transition focus:border-brand/60 focus:bg-white/[0.07] sm:h-10 sm:text-sm"
           />
         </label>
 
@@ -297,7 +297,7 @@ export function MarketBrowser({
               value={runs}
               onChange={(event) => setRuns(Number(event.target.value))}
               title="How many independent forecasts to run in parallel and average"
-              className="h-11 w-full rounded-xl border border-surface-3/70 bg-surface-1/70 px-3 text-ink-1 focus:border-brand/60 sm:h-10 sm:w-auto sm:text-sm"
+              className="h-11 w-full rounded-xl border border-white/[0.1] bg-white/[0.05] px-3 text-ink-1 transition focus:border-brand/60 sm:h-10 sm:w-auto sm:text-sm"
             >
               {runChoices.map((choice) => (
                 <option key={choice} value={choice} className="bg-surface-1">
@@ -312,7 +312,7 @@ export function MarketBrowser({
             <select
               value={sort}
               onChange={(event) => setSort(event.target.value as SortKey)}
-              className="h-11 w-full rounded-xl border border-surface-3/70 bg-surface-1/70 px-3 text-ink-1 focus:border-brand/60 sm:h-10 sm:w-auto sm:text-sm"
+              className="h-11 w-full rounded-xl border border-white/[0.1] bg-white/[0.05] px-3 text-ink-1 transition focus:border-brand/60 sm:h-10 sm:w-auto sm:text-sm"
             >
               {SORTS.map((option) => (
                 <option key={option.key} value={option.key} className="bg-surface-1">
@@ -333,7 +333,7 @@ export function MarketBrowser({
         <button
           type="button"
           onClick={() => setIncludeNoisy((value) => !value)}
-          className="flex items-center gap-2 self-start rounded-full border border-surface-3/70 px-3 py-1.5 text-xs text-ink-2 transition hover:bg-surface-2/70 hover:text-ink-0"
+          className="flex items-center gap-2 self-start rounded-full border border-white/[0.1] bg-white/[0.04] px-3 py-1.5 text-xs text-ink-2 transition hover:bg-white/[0.08] hover:text-ink-0"
         >
           <span
             aria-hidden
@@ -370,9 +370,10 @@ export function MarketBrowser({
         />
       ) : (
         <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-          {markets.map((market) => (
+          {markets.map((market, index) => (
             <MarketCard
               key={market.id}
+              index={index}
               market={market}
               onResearch={startResearch}
               isResearching={inFlightId === market.id}
@@ -391,7 +392,7 @@ export function MarketBrowser({
             type="button"
             onClick={() => void loadMore()}
             disabled={loadingMore}
-            className="inline-flex h-12 items-center gap-2 rounded-xl border border-surface-3/70 px-5 text-sm font-medium text-ink-1 transition hover:bg-surface-2/70 disabled:opacity-50"
+            className="inline-flex h-12 items-center gap-2 rounded-xl border border-white/[0.1] bg-white/[0.04] px-5 text-sm font-medium text-ink-1 transition hover:bg-white/[0.08] disabled:opacity-50"
           >
             {loadingMore ? (
               <>

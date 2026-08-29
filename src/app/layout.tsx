@@ -38,7 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 function SiteHeader() {
   return (
-    <header className="sticky top-0 z-40 border-b border-surface-3/50 bg-surface-0">
+    <header className="glass-blur backdrop-blur-xl backdrop-saturate-150 sticky top-0 z-40 border-b border-white/[0.07]">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:h-16 sm:px-6">
         <Link href="/" className="flex items-center gap-2.5">
           <span

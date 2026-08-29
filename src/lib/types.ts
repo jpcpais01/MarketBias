@@ -63,6 +63,25 @@ export interface Source {
   note?: string;
 }
 
+/**
+ * Stage 1a: the shared evidence base.
+ *
+ * Gathered once per analysis with web search, then handed to every estimate
+ * run. Deliberately carries no probability — a number here would anchor every
+ * run to the same value and destroy the point of sampling.
+ */
+export interface ResearchBrief {
+  summary: string;
+  keyDrivers: string[];
+  baseRates: string[];
+  evidenceFor: string[];
+  evidenceAgainst: string[];
+  uncertainties: string[];
+  sources: Source[];
+  /** Wording in the resolution criteria that changes how the question resolves. */
+  criteriaNotes: string[];
+}
+
 /** Stage 1: the blind forecast, produced without sight of the market price. */
 export interface BlindForecast {
   probability: number; // 0-100
@@ -115,6 +134,13 @@ export interface EnsembleSample {
 export interface Ensemble {
   /** Runs requested by the caller. */
   requested: number;
+  /**
+   * True when every run judged the same shared research brief.
+   *
+   * The spread then measures variance in judgement given fixed evidence, not
+   * variance in what the runs found — a narrower claim, and the UI says so.
+   */
+  sharedResearch?: boolean;
   /** Runs that returned a usable forecast. */
   completed: number;
   /** Runs that errored; the analysis proceeds on the survivors. */

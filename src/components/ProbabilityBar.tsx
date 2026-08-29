@@ -23,7 +23,7 @@ export function ProbabilityBar({
           {formatPercent(probability)}
         </span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-surface-3/60">
+      <div className="h-2 w-full overflow-hidden rounded-full bg-white/[0.08]">
         <div
           className="h-full rounded-full bg-yes/80 transition-[width] duration-500"
           style={{ width: `${percent}%` }}
@@ -51,7 +51,7 @@ export function ProbabilityComparison({
 }) {
   const band = deviationBand(deviation);
   const bandStyles: Record<string, string> = {
-    aligned: "text-ink-1 bg-surface-2/80 ring-surface-3/70",
+    aligned: "text-ink-1 bg-white/[0.06] ring-white/10",
     moderate: "text-warn bg-warn/10 ring-warn/30",
     large: "text-no bg-no/10 ring-no/30",
   };
@@ -81,7 +81,7 @@ export function ProbabilityComparison({
         marker={revised ? blindProbability : undefined}
       />
 
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-surface-3/60 bg-surface-1/60 px-4 py-3">
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
         <span className="text-xs font-medium uppercase tracking-wide text-ink-3">Deviation</span>
         <span
           className={`rounded-full px-3 py-1 font-mono text-sm font-semibold tabular-nums ring-1 ring-inset ${bandStyles[band]}`}
@@ -119,7 +119,7 @@ function Row({
           {formatPercent(value)}
         </span>
       </div>
-      <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-surface-3/60">
+      <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-white/[0.08]">
         <div
           className={`h-full rounded-full ${barClass} transition-[width] duration-700`}
           style={{ width: `${percent}%` }}

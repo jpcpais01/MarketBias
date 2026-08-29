@@ -16,9 +16,11 @@ import { randomUUID } from "node:crypto";
 import { config } from "@/lib/env";
 import { chat, parseJsonObject } from "@/lib/openrouter";
 import {
-  STAGE_ONE_SYSTEM,
+  ESTIMATE_SYSTEM,
+  RESEARCH_SYSTEM,
   STAGE_TWO_SYSTEM,
-  buildStageOneUser,
+  buildEstimateUser,
+  buildResearchUser,
   buildStageTwoUser,
 } from "@/lib/prompts";
 import { getStore } from "@/lib/store";
@@ -31,6 +33,7 @@ import type {
   Ensemble,
   EnsembleSample,
   Market,
+  ResearchBrief,
   Source,
 } from "@/lib/types";
 
@@ -263,31 +266,26 @@ function unionStrings(groups: string[][], limit = 16): string[] {
  * returned, and only a total wipeout throws. Each run is an independent
  * request, so the model cannot see its other attempts.
  */
-async function runBlindEnsemble(
+async function runEstimateEnsemble(
   market: Market,
+  brief: ResearchBrief,
   model: string,
   count: number,
-  onSample: (
-    completed: number,
-    failed: number,
-    probability: number | null,
-    sources: Source[],
-    runIndex: number,
-  ) => void,
+  onSample: (completed: number, failed: number, probability: number | null) => void,
 ) {
   let completed = 0;
   let failed = 0;
 
   const settled = await Promise.allSettled(
-    Array.from({ length: count }, async (_unused, runIndex) => {
-      const forecast = await runBlindForecast(market, model);
+    Array.from({ length: count }, async () => {
+      const forecast = await runEstimate(market, brief, model);
       completed += 1;
-      onSample(completed, failed, forecast.probability, forecast.sources, runIndex);
+      onSample(completed, failed, forecast.probability);
       return forecast;
     }).map((promise) =>
       promise.catch((error: unknown) => {
         failed += 1;
-        onSample(completed, failed, null, [], -1);
+        onSample(completed, failed, null);
         throw error;
       }),
     ),
@@ -309,15 +307,59 @@ async function runBlindEnsemble(
 
 /* ------------------------------- stages ---------------------------------- */
 
-async function runBlindForecast(market: Market, model: string): Promise<BlindForecast> {
+/**
+ * Gathers the shared evidence base with one web-search call.
+ *
+ * Doing this once, rather than once per run, is what makes multi-run analysis
+ * fast and affordable: the slow, expensive part of the workflow happens a
+ * single time and every estimate then judges the same material.
+ */
+async function runResearch(market: Market, model: string): Promise<ResearchBrief> {
   const result = await chat({
     model,
     webSearch: config.openRouter.webSearch,
-    temperature: 0.2,
+    temperature: config.openRouter.researchTemperature,
     json: true,
     messages: [
-      { role: "system", content: STAGE_ONE_SYSTEM },
-      { role: "user", content: buildStageOneUser(market, new Date()) },
+      { role: "system", content: RESEARCH_SYSTEM },
+      { role: "user", content: buildResearchUser(market, new Date()) },
+    ],
+  });
+
+  const parsed = parseJsonObject(result.content);
+
+  return {
+    summary: coerceText(parsed.summary, "The model did not return a research summary."),
+    criteriaNotes: coerceStringList(parsed.criteriaNotes),
+    keyDrivers: coerceStringList(parsed.keyDrivers),
+    baseRates: coerceStringList(parsed.baseRates),
+    evidenceFor: coerceStringList(parsed.evidenceFor),
+    evidenceAgainst: coerceStringList(parsed.evidenceAgainst),
+    uncertainties: coerceStringList(parsed.uncertainties),
+    // Model-cited sources first, then any the web plugin attached.
+    sources: mergeSources(coerceSources(parsed.sources), result.citations),
+  };
+}
+
+/**
+ * One independent judgement of the shared brief.
+ *
+ * Each call is a separate request with no shared conversation, so runs cannot
+ * see one another. Web search is off here — the evidence is already gathered.
+ */
+async function runEstimate(
+  market: Market,
+  brief: ResearchBrief,
+  model: string,
+): Promise<BlindForecast> {
+  const result = await chat({
+    model,
+    webSearch: false,
+    temperature: config.openRouter.estimateTemperature,
+    json: true,
+    messages: [
+      { role: "system", content: ESTIMATE_SYSTEM },
+      { role: "user", content: buildEstimateUser(market, brief, new Date()) },
     ],
   });
 
@@ -327,13 +369,13 @@ async function runBlindForecast(market: Market, model: string): Promise<BlindFor
     probability: coerceProbability(parsed.probability, "probability"),
     confidence: coerceConfidence(parsed.confidence),
     reasoning: coerceText(parsed.reasoning, "The model did not provide a reasoning summary."),
-    evidenceFor: coerceStringList(parsed.evidenceFor),
-    evidenceAgainst: coerceStringList(parsed.evidenceAgainst),
-    uncertainties: coerceStringList(parsed.uncertainties),
-    baseRates: coerceStringList(parsed.baseRates),
-    keyDrivers: coerceStringList(parsed.keyDrivers),
-    // Model-cited sources first, then any the web plugin attached.
-    sources: mergeSources(coerceSources(parsed.sources), result.citations),
+    // Evidence fields come from the shared brief, carried through unchanged.
+    evidenceFor: brief.evidenceFor,
+    evidenceAgainst: brief.evidenceAgainst,
+    uncertainties: brief.uncertainties,
+    baseRates: brief.baseRates,
+    keyDrivers: brief.keyDrivers,
+    sources: brief.sources,
   };
 }
 
@@ -413,38 +455,40 @@ export async function runAnalysis({
   const polymarketProbability =
     market.yesProbability === null ? null : Math.round(market.yesProbability * 1000) / 10;
 
-  const research = config.openRouter.webSearch
-    ? "Researching current information, primary sources and base rates"
-    : "Reasoning from the model's own knowledge (web search is disabled)";
-
   emit({
     type: "stage",
     stage: "researching",
-    message:
-      runCount === 1
-        ? `${research}…`
-        : `${research} across ${runCount} independent forecasts in parallel…`,
+    message: config.openRouter.webSearch
+      ? "Searching the web for current information, primary sources and base rates…"
+      : "Assembling evidence from the model's own knowledge (web search is disabled)…",
   });
 
-  const { merged: forecast, ensemble } = await runBlindEnsemble(
-    market,
-    resolvedModel,
-    runCount,
-    (completed, failed, probability, sources, runIndex) => {
-      if (sources.length > 0) emit({ type: "sources", runIndex, sources });
-      emit({ type: "sample", completed, failed, total: runCount, probability });
-    },
-  );
+  // One research pass, shared by every estimate run.
+  const brief = await runResearch(market, resolvedModel);
+
+  if (brief.sources.length > 0) {
+    emit({ type: "sources", runIndex: 0, sources: brief.sources });
+  }
 
   emit({
     type: "stage",
     stage: "estimating",
     message:
-      ensemble.completed === 1
-        ? `Independent estimate formed: ${forecast.probability}% (market price still hidden).`
-        : `Averaged ${ensemble.completed} independent forecasts: ${forecast.probability}% ` +
-          `(range ${ensemble.min}–${ensemble.max}%, market price still hidden).`,
+      runCount === 1
+        ? "Judging the evidence and committing to a probability…"
+        : `Judging the same evidence ${runCount} times independently…`,
   });
+
+  const { merged: forecast, ensemble: baseEnsemble } = await runEstimateEnsemble(
+    market,
+    brief,
+    resolvedModel,
+    runCount,
+    (completed, failed, probability) =>
+      emit({ type: "sample", completed, failed, total: runCount, probability }),
+  );
+
+  const ensemble = { ...baseEnsemble, sharedResearch: true };
 
   emit({
     type: "stage",

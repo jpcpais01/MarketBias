@@ -78,12 +78,12 @@ export function AnalyzeDrawer({
         role="dialog"
         aria-modal="true"
         aria-label={`Research on: ${state.market.question}`}
-        className="animate-sheet relative flex h-[92dvh] w-full flex-col rounded-t-2xl border-t border-surface-3/70 bg-surface-1 shadow-2xl sm:h-full sm:max-w-2xl sm:rounded-none sm:border-t-0 sm:border-l"
+        className="glass-blur backdrop-blur-xl backdrop-saturate-150 animate-sheet relative flex h-[92dvh] w-full flex-col rounded-t-3xl border-t border-white/[0.12] shadow-2xl sm:h-full sm:max-w-2xl sm:rounded-none sm:border-l sm:border-t-0"
       >
         {/* Grab-handle affordance; the sheet is tap-to-dismiss, not draggable. */}
-        <div aria-hidden className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-surface-3 sm:hidden" />
+        <div aria-hidden className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-white/25 sm:hidden" />
 
-        <header className="hairline flex items-start justify-between gap-3 border-b px-4 py-3.5 sm:px-5 sm:py-4">
+        <header className="flex items-start justify-between gap-3 border-b border-white/[0.08] px-4 py-3.5 sm:px-5 sm:py-4">
           <div className="min-w-0 flex-1">
             <p className="text-xs uppercase tracking-wide text-ink-3">
               {state.done && state.analysis
@@ -101,7 +101,7 @@ export function AnalyzeDrawer({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-surface-3/70 text-ink-2 transition hover:bg-surface-2 hover:text-ink-0"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.1] bg-white/[0.04] text-ink-2 transition hover:bg-white/[0.1] hover:text-ink-0"
           >
             <svg viewBox="0 0 24 24" fill="none" aria-hidden className="size-5">
               <path
@@ -159,7 +159,7 @@ function StageProgress({
                     ? "bg-yes/20 text-yes"
                     : isActive
                       ? "bg-brand/20 text-brand"
-                      : "bg-surface-2 text-ink-3"
+                      : "bg-white/[0.06] text-ink-3"
                 }`}
               >
                 {isDone ? "✓" : isActive ? <Spinner className="size-3" /> : index + 1}
@@ -177,7 +177,7 @@ function StageProgress({
       </ol>
 
       {state.runs > 1 && settled > 0 ? (
-        <div className="flex flex-col gap-2 rounded-xl bg-surface-2/60 px-4 py-3">
+        <div className="flex flex-col gap-2 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-3">
           <div className="flex min-w-0 items-baseline justify-between gap-2 text-xs">
             <span className="min-w-0 truncate text-ink-3">
               {settled} of {state.runs} forecasts returned
@@ -191,8 +191,8 @@ function StageProgress({
             {Array.from({ length: state.runs }).map((_, index) => (
               <span
                 key={index}
-                className={`h-1.5 flex-1 rounded-full ${
-                  index < settled ? "bg-ai" : "bg-surface-3/60"
+                className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
+                  index < settled ? "bg-ai" : "bg-white/[0.1]"
                 }`}
               />
             ))}
@@ -202,7 +202,7 @@ function StageProgress({
 
       {state.sources.length > 0 ? <ResearchSources sources={state.sources} /> : null}
 
-      <p aria-live="polite" className="rounded-xl bg-surface-2/60 px-4 py-3 text-sm text-ink-2">
+      <p aria-live="polite" className="rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-3 text-sm text-ink-2">
         {message || "Starting…"}
       </p>
 
@@ -233,7 +233,7 @@ function ResearchSources({ sources }: { sources: Source[] }) {
               href={source.url}
               target="_blank"
               rel="noreferrer noopener"
-              className="flex min-w-0 items-baseline gap-2 rounded-lg px-2 py-1.5 transition hover:bg-surface-2/60"
+              className="flex min-w-0 items-baseline gap-2 rounded-lg px-2 py-1.5 transition hover:bg-white/[0.06]"
             >
               <span className="shrink-0 font-mono text-[0.7rem] text-brand">
                 {hostnameOf(source.url)}

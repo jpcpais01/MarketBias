@@ -23,6 +23,13 @@ function bool(name: string, fallback: boolean): boolean {
   return ["1", "true", "yes", "on"].includes(value.toLowerCase());
 }
 
+function num(name: string, fallback: number): number {
+  const value = optional(name);
+  if (value === undefined) return fallback;
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 function int(name: string, fallback: number): number {
   const value = optional(name);
   if (value === undefined) return fallback;
@@ -50,6 +57,14 @@ export const config = {
     /** Some models reject `response_format`; off by default, prompt-enforced JSON. */
     jsonMode: bool("OPENROUTER_JSON_MODE", false),
     timeoutMs: int("OPENROUTER_TIMEOUT_MS", 240_000),
+    /** Low for research and review: those stages should be steady. */
+    researchTemperature: num("OPENROUTER_RESEARCH_TEMPERATURE", 0.2),
+    /**
+     * Higher for estimates. Runs share one evidence base, so sampling is the
+     * only source of variation left; at a low temperature they would collapse
+     * onto the same number and the spread would be meaningless.
+     */
+    estimateTemperature: num("OPENROUTER_ESTIMATE_TEMPERATURE", 0.8),
   },
   markets: {
     /** Hide recurring low-information markets (weather, hourly ticks, …). */

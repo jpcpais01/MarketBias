@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+
 import { ProbabilityComparison } from "@/components/ProbabilityBar";
 import { Badge, Stat } from "@/components/ui";
 import {
@@ -17,7 +21,24 @@ const CONFIDENCE_TONE: Record<Confidence, "no" | "warn" | "yes"> = {
 };
 
 /** Full render of a persisted analysis. Used in the analyze drawer and history. */
+type ResultTab = "summary" | "evidence" | "sources";
+
+const TABS: { id: ResultTab; label: string }[] = [
+  { id: "summary", label: "Summary" },
+  { id: "evidence", label: "Evidence" },
+  { id: "sources", label: "Sources" },
+];
+
+/**
+ * Full render of a persisted analysis.
+ *
+ * The three tabs exist because the whole record is far more than a phone
+ * screen: the numbers and the reasoning answer "so what?" on their own, and
+ * the supporting detail is one tap away rather than a long scroll past it.
+ */
 export function AnalysisResult({ analysis, compact = false }: { analysis: Analysis; compact?: boolean }) {
+  const [tab, setTab] = useState<ResultTab>("summary");
+
   return (
     <div className="flex flex-col gap-5 sm:gap-6">
       <ProbabilityComparison
@@ -44,84 +65,120 @@ export function AnalysisResult({ analysis, compact = false }: { analysis: Analys
         {analysis.webSearchEnabled ? <Badge tone="neutral">Web research</Badge> : <Badge tone="warn">No web search</Badge>}
       </div>
 
-      <Section title="Reasoning">
-        <p className="text-sm leading-relaxed text-ink-1">{analysis.reasoning}</p>
-      </Section>
-
-      {analysis.keyDrivers.length > 0 ? (
-        <Section title="What this hinges on">
-          <List items={analysis.keyDrivers} />
-        </Section>
-      ) : null}
-
-      <div className="grid gap-5 sm:grid-cols-2 sm:gap-4">
-        <Section title="Evidence for YES" tone="yes">
-          <List items={analysis.evidenceFor} emptyText="No supporting evidence was recorded." />
-        </Section>
-        <Section title="Evidence for NO" tone="no">
-          <List items={analysis.evidenceAgainst} emptyText="No opposing evidence was recorded." />
-        </Section>
+      <div
+        role="tablist"
+        aria-label="Analysis detail"
+        className="flex gap-1 rounded-xl border border-white/[0.08] bg-white/[0.03] p-1"
+      >
+        {TABS.map((entry) => (
+          <button
+            key={entry.id}
+            role="tab"
+            type="button"
+            aria-selected={tab === entry.id}
+            onClick={() => setTab(entry.id)}
+            className={`h-9 flex-1 rounded-lg text-sm font-medium transition ${
+              tab === entry.id
+                ? "bg-white/[0.1] text-ink-0 shadow-sm"
+                : "text-ink-3 hover:text-ink-1"
+            }`}
+          >
+            {entry.label}
+            {entry.id === "sources" && analysis.sources.length > 0 ? (
+              <span className="ml-1.5 text-xs text-ink-3">{analysis.sources.length}</span>
+            ) : null}
+          </button>
+        ))}
       </div>
 
-      {analysis.baseRates.length > 0 ? (
-        <Section title="Base rates and reference classes">
-          <List items={analysis.baseRates} />
-        </Section>
+      {tab === "summary" ? (
+        <div className="flex flex-col gap-5">
+          <Section title="Reasoning">
+            <p className="text-sm leading-relaxed text-ink-1">{analysis.reasoning}</p>
+          </Section>
+
+          {analysis.keyDrivers.length > 0 ? (
+            <Section title="What this hinges on">
+              <List items={analysis.keyDrivers} />
+            </Section>
+          ) : null}
+
+          <Section title="After seeing the market price">
+            <p className="text-sm leading-relaxed text-ink-1">{analysis.review.explanation}</p>
+            {analysis.review.marketMayKnow.length > 0 ? (
+              <div className="mt-4">
+                <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-ink-3">
+                  What the market may be pricing in
+                </p>
+                <List items={analysis.review.marketMayKnow} />
+              </div>
+            ) : null}
+            {analysis.review.forecastMayBeBetter.length > 0 ? (
+              <div className="mt-4">
+                <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-ink-3">
+                  Why this forecast may be better calibrated
+                </p>
+                <List items={analysis.review.forecastMayBeBetter} />
+              </div>
+            ) : null}
+          </Section>
+        </div>
       ) : null}
 
-      <Section title="Key uncertainties" tone="warn">
-        <List items={analysis.uncertainties} emptyText="No uncertainties were recorded." />
-      </Section>
+      {tab === "evidence" ? (
+        <div className="flex flex-col gap-5">
+          <Section title="Evidence for YES" tone="yes">
+            <List items={analysis.evidenceFor} emptyText="No supporting evidence was recorded." />
+          </Section>
+          <Section title="Evidence for NO" tone="no">
+            <List items={analysis.evidenceAgainst} emptyText="No opposing evidence was recorded." />
+          </Section>
+          {analysis.baseRates.length > 0 ? (
+            <Section title="Base rates and reference classes">
+              <List items={analysis.baseRates} />
+            </Section>
+          ) : null}
+          <Section title="Key uncertainties" tone="warn">
+            <List items={analysis.uncertainties} emptyText="No uncertainties were recorded." />
+          </Section>
+        </div>
+      ) : null}
 
-      <Section title="Discrepancy review">
-        <p className="text-sm leading-relaxed text-ink-1">{analysis.review.explanation}</p>
-        {analysis.review.marketMayKnow.length > 0 ? (
-          <div className="mt-4">
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-ink-3">
-              What the market may be pricing in
+      {tab === "sources" ? (
+        <Section title="Sources">
+          {analysis.sources.length === 0 ? (
+            <p className="text-sm text-ink-3">
+              No sources were cited. Enable web search (OPENROUTER_ENABLE_WEB_SEARCH) or choose a
+              model with research capability for source-backed forecasts.
             </p>
-            <List items={analysis.review.marketMayKnow} />
-          </div>
-        ) : null}
-        {analysis.review.forecastMayBeBetter.length > 0 ? (
-          <div className="mt-4">
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-ink-3">
-              Why this forecast may be better calibrated
-            </p>
-            <List items={analysis.review.forecastMayBeBetter} />
-          </div>
-        ) : null}
-      </Section>
-
-      <Section title={`Sources (${analysis.sources.length})`}>
-        {analysis.sources.length === 0 ? (
-          <p className="text-sm text-ink-3">
-            No sources were cited. Enable web search (OPENROUTER_ENABLE_WEB_SEARCH) or choose a
-            model with research capability for source-backed forecasts.
-          </p>
-        ) : (
-          <ol className="flex flex-col gap-2">
-            {analysis.sources.map((source, index) => (
-              <li key={`${source.url}-${index}`} className="min-w-0 text-sm">
-                <a
-                  href={source.url}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="block break-words font-medium text-brand underline-offset-2 hover:underline"
-                >
-                  {/* Titles are sometimes just the URL again; clamp so one source
-                      cannot take over the list. */}
-                  <span className="line-clamp-2">{source.title}</span>
-                </a>
-                <span className="mt-0.5 block truncate font-mono text-xs text-ink-3">
-                  {hostnameOf(source.url)}
-                </span>
-                {source.note ? <p className="mt-0.5 break-words text-ink-2">{source.note}</p> : null}
-              </li>
-            ))}
-          </ol>
-        )}
-      </Section>
+          ) : (
+            <ol className="flex flex-col gap-2">
+              {analysis.sources.map((source, index) => (
+                <li key={`${source.url}-${index}`} className="min-w-0">
+                  <a
+                    href={source.url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="flex min-w-0 flex-col gap-1 rounded-xl border border-white/[0.07] bg-white/[0.03] p-3 transition hover:border-white/15 hover:bg-white/[0.06]"
+                  >
+                    <span className="truncate font-mono text-[0.7rem] text-brand">
+                      {hostnameOf(source.url)}
+                    </span>
+                    {/* Titles are sometimes just the URL again; clamp so one
+                        source cannot take over the list. */}
+                    <span className="line-clamp-2 text-sm font-medium text-ink-1">
+                      {source.title}
+                    </span>
+                    {source.note ? (
+                      <span className="line-clamp-2 text-xs text-ink-3">{source.note}</span>
+                    ) : null}
+                  </a>
+                </li>
+              ))}
+            </ol>
+          )}
+        </Section>
+      ) : null}
 
       {compact ? null : (
         <dl className="hairline grid grid-cols-2 gap-4 border-t pt-4 sm:grid-cols-4">
@@ -203,7 +260,10 @@ function EnsembleSpread({ ensemble }: { ensemble: Ensemble }) {
     <div className="flex flex-col gap-3 rounded-xl border border-surface-3/60 bg-surface-1/60 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
-          {ensemble.completed} independent forecasts, averaged
+          {/* Say what actually varied between runs, not more. */}
+          {ensemble.sharedResearch
+            ? `${ensemble.completed} estimates from one research pass`
+            : `${ensemble.completed} independent forecasts, averaged`}
         </h3>
         <Badge tone={tone}>{agreement} agreement · σ {ensemble.stdDev} pts</Badge>
       </div>
@@ -249,8 +309,10 @@ function EnsembleSpread({ ensemble }: { ensemble: Ensemble }) {
       </dl>
 
       <p className="text-xs leading-relaxed text-ink-3">
-        Reasoning below comes from run {ensemble.representativeIndex + 1}, the one nearest the mean.
-        Evidence, uncertainties and sources are pooled across all runs.
+        {ensemble.sharedResearch
+          ? // Be precise about what the spread does and does not measure.
+            `All ${ensemble.completed} runs judged the same research, so this spread shows how much the model's judgement varies on fixed evidence — not how much its research varies. Reasoning shown is from run ${ensemble.representativeIndex + 1}, nearest the mean.`
+          : `Reasoning is from run ${ensemble.representativeIndex + 1}, the one nearest the mean. Evidence and sources are pooled across runs.`}
       </p>
     </div>
   );

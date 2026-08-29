@@ -52,7 +52,7 @@ export default async function HistoryPage() {
       {error ? <ErrorState title="Could not load history" message={error} /> : null}
 
       {!error && analyses.length > 0 ? (
-        <dl className="panel grid grid-cols-2 gap-4 p-4 sm:grid-cols-4 sm:gap-5 sm:p-5">
+        <dl className="glass grid grid-cols-2 gap-4 p-4 sm:grid-cols-4 sm:gap-5 sm:p-5">
           <Stat label="Forecasts" value={total} />
           <Stat
             label="Mean |deviation|"

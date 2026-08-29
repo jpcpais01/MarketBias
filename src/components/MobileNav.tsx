@@ -42,7 +42,7 @@ export function MobileNav() {
   return (
     <nav
       aria-label="Primary"
-      className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-surface-3/60 bg-surface-1 sm:hidden"
+      className="glass-blur backdrop-blur-xl backdrop-saturate-150 safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.07] sm:hidden"
     >
       <ul className="grid grid-cols-2">
         {TABS.map((tab) => {
@@ -52,10 +52,16 @@ export function MobileNav() {
               <Link
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex h-14 flex-col items-center justify-center gap-1 text-[0.7rem] font-medium transition ${
+                className={`relative flex h-14 flex-col items-center justify-center gap-1 text-[0.7rem] font-medium transition ${
                   active ? "text-brand" : "text-ink-3"
                 }`}
               >
+                {active ? (
+                  <span
+                    aria-hidden
+                    className="absolute inset-x-6 top-0 h-0.5 rounded-full bg-brand"
+                  />
+                ) : null}
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden className="size-5">
                   {tab.icon}
                 </svg>

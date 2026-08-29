@@ -12,7 +12,7 @@ export function Badge({
   className?: string;
 }) {
   const tones: Record<string, string> = {
-    neutral: "bg-surface-2/80 text-ink-2 ring-surface-3/70",
+    neutral: "bg-white/[0.06] text-ink-2 ring-white/10",
     yes: "bg-yes/10 text-yes ring-yes/30",
     no: "bg-no/10 text-no ring-no/30",
     ai: "bg-ai/10 text-ai ring-ai/30",
@@ -79,7 +79,7 @@ export function ErrorState({
 
 export function EmptyState({ title, message, action }: { title: string; message: string; action?: ReactNode }) {
   return (
-    <div className="panel flex flex-col items-center gap-3 px-6 py-14 text-center">
+    <div className="glass flex flex-col items-center gap-3 px-6 py-14 text-center">
       <span aria-hidden className="text-ink-3">
         <svg viewBox="0 0 24 24" fill="none" className="size-8">
           <path d="M4 17V9M9.5 17V5M15 17v-6M20.5 17v-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -94,15 +94,12 @@ export function EmptyState({ title, message, action }: { title: string; message:
 
 export function SkeletonCard() {
   return (
-    <div className="panel min-w-0 animate-pulse p-4 sm:p-5">
-      <div className="h-3 w-24 rounded bg-surface-3/60" />
-      <div className="mt-4 h-4 w-full rounded bg-surface-3/60" />
-      <div className="mt-2 h-4 w-4/5 rounded bg-surface-3/60" />
-      <div className="mt-6 h-2 w-full rounded-full bg-surface-3/60" />
-      <div className="mt-5 flex gap-2">
-        <div className="h-6 w-20 rounded-full bg-surface-3/60" />
-        <div className="h-6 w-20 rounded-full bg-surface-3/60" />
-      </div>
+    <div className="glass min-w-0 animate-pulse p-4 sm:p-5">
+      <div className="h-3 w-24 rounded bg-white/[0.07]" />
+      <div className="mt-4 h-4 w-full rounded bg-white/[0.07]" />
+      <div className="mt-2 h-4 w-4/5 rounded bg-white/[0.07]" />
+      <div className="mt-6 h-2 w-full rounded-full bg-white/[0.07]" />
+      <div className="mt-5 h-12 w-full rounded-xl bg-white/[0.07]" />
     </div>
   );
 }

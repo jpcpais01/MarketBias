@@ -18,6 +18,7 @@ export function MarketCard({
   isResearching,
   disabled,
   priorAnalyses = 0,
+  index = 0,
 }: {
   market: Market;
   onResearch: (market: Market) => void;
@@ -25,6 +26,8 @@ export function MarketCard({
   disabled: boolean;
   /** Count of stored forecasts for this market, shown as a history hint. */
   priorAnalyses?: number;
+  /** Position in the grid, used only to stagger the entry animation. */
+  index?: number;
 }) {
   // Resolved after mount so the clock is never read during render.
   const now = useClientNow();
@@ -35,7 +38,11 @@ export function MarketCard({
   const width = percent === null ? 0 : Math.min(100, Math.max(0, percent));
 
   return (
-    <article className="group panel flex min-w-0 flex-col gap-4 p-4 transition hover:border-brand/40 sm:p-5">
+    <article
+      className="group glass animate-in flex min-w-0 flex-col gap-4 p-4 transition duration-200 hover:border-white/20 hover:bg-white/[0.06] sm:p-5"
+      // Cheap stagger: cards settle in sequence instead of snapping in at once.
+      style={{ animationDelay: `${Math.min(index, 8) * 35}ms` }}
+    >
       <header className="flex min-w-0 items-start gap-3">
         <div className="min-w-0 flex-1">
           {market.eventTitle && market.eventTitle !== market.question ? (
@@ -70,7 +77,7 @@ export function MarketCard({
             {formatPercent(percent)}
           </span>
         </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-3/60">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.08]">
           <div
             className="h-full rounded-full bg-yes transition-[width] duration-500"
             style={{ width: `${width}%` }}
@@ -94,7 +101,7 @@ export function MarketCard({
           type="button"
           onClick={() => onResearch(market)}
           disabled={disabled}
-          className="inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-brand text-sm font-semibold text-surface-0 transition hover:bg-brand-strong active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:h-11"
+          className="inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-brand text-sm font-semibold text-surface-0 shadow-[0_6px_20px_-8px] shadow-brand/70 transition duration-150 hover:bg-brand-strong active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none sm:h-11"
         >
           {isResearching ? (
             <>
@@ -111,7 +118,7 @@ export function MarketCard({
             rel="noreferrer noopener"
             aria-label="Open this market on Polymarket"
             title="Open on Polymarket"
-            className="inline-flex size-12 shrink-0 items-center justify-center rounded-xl border border-surface-3/70 text-ink-3 transition hover:bg-surface-2/70 hover:text-ink-0 sm:size-11"
+            className="inline-flex size-12 shrink-0 items-center justify-center rounded-xl border border-white/[0.1] bg-white/[0.03] text-ink-3 transition hover:bg-white/[0.08] hover:text-ink-0 sm:size-11"
           >
             <svg viewBox="0 0 24 24" fill="none" aria-hidden className="size-[18px]">
               <path
