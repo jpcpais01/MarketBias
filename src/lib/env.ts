@@ -32,7 +32,7 @@ function int(name: string, fallback: number): number {
 
 // No `:online` suffix — web research is added by the `web` plugin instead, so
 // that search works identically whichever model is configured.
-export const DEFAULT_MODEL = "openai/gpt-4o-mini";
+export const DEFAULT_MODEL = "deepseek/deepseek-v4-flash-0731";
 
 export const config = {
   openRouter: {

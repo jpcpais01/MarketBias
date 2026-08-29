@@ -54,9 +54,9 @@ npm run dev          # http://localhost:3000
 
 That is the whole setup. Browsing markets needs no key at all (Polymarket's API is public); only **Research** requires `OPENROUTER_API_KEY`. Locally, analyses are written to `.data/analyses/` with no database to configure.
 
-### Changing the model
+### The model
 
-Set one variable — no code changes:
+Defaults to [`deepseek/deepseek-v4-flash-0731`](https://openrouter.ai/deepseek/deepseek-v4-flash-0731) — no configuration needed. To use a different one, set a single variable; no code changes:
 
 ```bash
 OPENROUTER_MODEL=anthropic/claude-sonnet-4.5
@@ -75,11 +75,11 @@ Any id from [openrouter.ai/models](https://openrouter.ai/models) works. Pick a m
    | Variable | Required | Notes |
    |---|---|---|
    | `OPENROUTER_API_KEY` | yes | Server-side secret. Never use a `NEXT_PUBLIC_` prefix. |
-   | `OPENROUTER_MODEL` | recommended | Defaults to `openai/gpt-4o-mini`. |
+   | `OPENROUTER_MODEL` | no | Defaults to `deepseek/deepseek-v4-flash-0731`. |
    | `UPSTASH_REDIS_REST_URL` | for durable history | See step 3. |
    | `UPSTASH_REDIS_REST_TOKEN` | for durable history | See step 3. |
 
-   Those four are the whole list. Everything else in `.env.example` is commented out and documents a default — **do not add them to Vercel unless you are changing the value**. If you pasted the whole file into Vercel's import box and ended up with a dozen variables, delete every one except the four above; they are all optional, and one of them (`OPENROUTER_API_KEY=sk-or-v1-replace-me`) is a placeholder that will fail every request until you replace it.
+   Only the first is required. Those four are the whole list. Everything else in `.env.example` is commented out and documents a default — **do not add them to Vercel unless you are changing the value**. If you pasted the whole file into Vercel's import box and ended up with a dozen variables, delete every one except the four above; they are all optional, and one of them (`OPENROUTER_API_KEY=sk-or-v1-replace-me`) is a placeholder that will fail every request until you replace it.
 
 3. **Add storage so forecasts persist.** Vercel's filesystem is ephemeral, so without a database the app falls back to an in-memory store and the dashboard warns you. Open the Vercel **Storage** tab → create an **Upstash Redis** database (free tier is ample) → connect it to the project. The integration sets `KV_REST_API_URL` / `KV_REST_API_TOKEN`, which this app reads as aliases. Or create a database directly at [upstash.com](https://upstash.com) and paste the two REST values.
 
