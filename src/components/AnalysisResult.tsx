@@ -19,7 +19,7 @@ const CONFIDENCE_TONE: Record<Confidence, "no" | "warn" | "yes"> = {
 /** Full render of a persisted analysis. Used in the analyze drawer and history. */
 export function AnalysisResult({ analysis, compact = false }: { analysis: Analysis; compact?: boolean }) {
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5 sm:gap-6">
       <ProbabilityComparison
         polymarketProbability={analysis.polymarketProbability}
         aiProbability={analysis.aiProbability}
@@ -31,7 +31,7 @@ export function AnalysisResult({ analysis, compact = false }: { analysis: Analys
         <EnsembleSpread ensemble={analysis.ensemble} />
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
         <Badge tone={CONFIDENCE_TONE[analysis.confidence]}>
           {analysis.confidence} confidence
         </Badge>
@@ -54,7 +54,7 @@ export function AnalysisResult({ analysis, compact = false }: { analysis: Analys
         </Section>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-5 sm:grid-cols-2 sm:gap-4">
         <Section title="Evidence for YES" tone="yes">
           <List items={analysis.evidenceFor} emptyText="No supporting evidence was recorded." />
         </Section>

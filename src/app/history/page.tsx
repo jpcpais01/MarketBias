@@ -37,9 +37,11 @@ export default async function HistoryPage() {
   const disagreements = withDeviation.filter((a) => Math.abs(a.deviation!) >= 15).length;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5 sm:gap-6">
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink-0">Analysis history</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-ink-0 sm:text-2xl">
+          Research history
+        </h1>
         <p className="max-w-2xl text-sm text-ink-2">
           Every forecast is stored with its timestamp and the market price at the moment it was
           made. Records are append-only — re-analysing a market adds a new forecast rather than
@@ -50,7 +52,7 @@ export default async function HistoryPage() {
       {error ? <ErrorState title="Could not load history" message={error} /> : null}
 
       {!error && analyses.length > 0 ? (
-        <dl className="panel grid grid-cols-2 gap-5 p-5 sm:grid-cols-4">
+        <dl className="panel grid grid-cols-2 gap-4 p-4 sm:grid-cols-4 sm:gap-5 sm:p-5">
           <Stat label="Forecasts" value={total} />
           <Stat
             label="Mean |deviation|"

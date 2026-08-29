@@ -33,15 +33,38 @@ html {
 }
 
 body {
+  /* No `background-attachment: fixed` — it forces repaints on iOS scroll. */
   background:
     radial-gradient(70rem 40rem at 15% -10%, oklch(0.28 0.07 260 / 0.5), transparent 60%),
     radial-gradient(60rem 36rem at 95% 0%, oklch(0.28 0.06 300 / 0.35), transparent 55%),
     var(--color-surface-0);
-  background-attachment: fixed;
+  background-repeat: no-repeat;
   color: var(--color-ink-0);
   font-family: var(--font-sans);
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/*
+ * iOS zooms the page when a focused input's font-size is under 16px, which is
+ * disorienting mid-search. Keep form controls at 16px on small screens and let
+ * the desktop breakpoints scale them down.
+ */
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Buttons and links should feel immediate to the touch. */
+button,
+a,
+select,
+input[type="search"] {
+  touch-action: manipulation;
 }
 
 /* Utilities used often enough to be worth naming. */
@@ -50,6 +73,11 @@ body {
   border: 1px solid color-mix(in oklab, var(--color-surface-3) 70%, transparent);
   border-radius: 1rem;
   backdrop-filter: blur(8px);
+}
+
+/** Clears the iOS home indicator on fixed bottom elements. */
+@utility safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 @utility hairline {
@@ -71,11 +99,31 @@ body {
   animation: trueodds-sweep 1.4s ease-in-out infinite;
 }
 
+/* Bottom sheet entry on phones; the desktop side panel uses the same class. */
+@keyframes trueodds-sheet-in {
+  from {
+    transform: translateY(3%);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-sheet {
+  animation: trueodds-sheet-in 0.22s ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-sweep::after {
     animation: none;
     width: 100%;
     opacity: 0.4;
+  }
+
+  .animate-sheet {
+    animation: none;
   }
 }
 

@@ -62,10 +62,11 @@ export function AnalyzeDrawer({
     : -1;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    // Bottom sheet on phones, right-hand side panel from `sm` upwards.
+    <div className="fixed inset-0 z-50 flex items-end sm:items-stretch sm:justify-end">
       <button
         type="button"
-        aria-label="Close analysis"
+        aria-label="Close research panel"
         onClick={onClose}
         className="absolute inset-0 bg-surface-0/80 backdrop-blur-sm"
       />
@@ -73,10 +74,13 @@ export function AnalyzeDrawer({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={`Analysis of: ${state.market.question}`}
-        className="relative flex h-full w-full max-w-2xl flex-col border-l border-surface-3/70 bg-surface-1 shadow-2xl"
+        aria-label={`Research on: ${state.market.question}`}
+        className="animate-sheet relative flex h-[92dvh] w-full flex-col rounded-t-2xl border-t border-surface-3/70 bg-surface-1 shadow-2xl sm:h-full sm:max-w-2xl sm:rounded-none sm:border-t-0 sm:border-l"
       >
-        <header className="hairline flex items-start justify-between gap-4 border-b px-5 py-4">
+        {/* Grab-handle affordance; the sheet is tap-to-dismiss, not draggable. */}
+        <div aria-hidden className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-surface-3 sm:hidden" />
+
+        <header className="hairline flex items-start justify-between gap-3 border-b px-4 py-3.5 sm:px-5 sm:py-4">
           <div className="min-w-0">
             <p className="text-xs uppercase tracking-wide text-ink-3">
               {state.done && state.analysis
@@ -85,7 +89,7 @@ export function AnalyzeDrawer({
                   ? `Researching · ${state.runs} parallel forecasts`
                   : "Researching market"}
             </p>
-            <h2 className="mt-1 text-base font-semibold leading-snug text-ink-0">
+            <h2 className="mt-1 line-clamp-2 text-[0.95rem] font-semibold leading-snug text-ink-0 sm:line-clamp-none sm:text-base">
               {state.market.question}
             </h2>
           </div>
@@ -93,13 +97,21 @@ export function AnalyzeDrawer({
             ref={closeRef}
             type="button"
             onClick={onClose}
-            className="shrink-0 rounded-lg border border-surface-3/70 px-3 py-1.5 text-sm text-ink-2 transition hover:bg-surface-2 hover:text-ink-0"
+            aria-label="Close"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-surface-3/70 text-ink-2 transition hover:bg-surface-2 hover:text-ink-0"
           >
-            Close
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden className="size-5">
+              <path
+                d="m7 7 10 10M17 7 7 17"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-5 py-5">
+        <div className="safe-bottom flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-5">
           {state.error ? (
             <ErrorState title="Research failed" message={state.error} onRetry={onRetry} />
           ) : state.analysis ? (

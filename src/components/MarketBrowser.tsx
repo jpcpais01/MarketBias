@@ -12,11 +12,12 @@ const PAGE_SIZE = 24;
 
 type SortKey = "volume24hr" | "volume" | "liquidity" | "endDate";
 
+// Labels stay short so they are not truncated inside a narrow native select.
 const SORTS: { key: SortKey; label: string; ascending: boolean }[] = [
-  { key: "volume24hr", label: "Hot (24h volume)", ascending: false },
-  { key: "volume", label: "Total volume", ascending: false },
+  { key: "volume24hr", label: "Hot 24h", ascending: false },
+  { key: "volume", label: "Top volume", ascending: false },
   { key: "liquidity", label: "Liquidity", ascending: false },
-  { key: "endDate", label: "Ending soonest", ascending: true },
+  { key: "endDate", label: "Ending soon", ascending: true },
 ];
 
 /**
@@ -232,8 +233,8 @@ export function MarketBrowser({
       : `${markets.length} active market${markets.length === 1 ? "" : "s"}`;
 
   return (
-    <section className="flex flex-col gap-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+    <section className="flex flex-col gap-4 sm:gap-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
         <label className="relative flex-1">
           <span className="sr-only">Search markets</span>
           <svg
@@ -249,49 +250,51 @@ export function MarketBrowser({
             type="search"
             value={rawQuery}
             onChange={(event) => setRawQuery(event.target.value)}
-            placeholder="Search active markets — elections, rates, sports, crypto…"
-            className="w-full rounded-xl border border-surface-3/70 bg-surface-1/70 py-2.5 pl-9 pr-3 text-sm text-ink-0 placeholder:text-ink-3 focus:border-brand/60"
+            placeholder="Search markets…"
+            className="h-11 w-full rounded-xl border border-surface-3/70 bg-surface-1/70 pl-9 pr-3 text-ink-0 placeholder:text-ink-3 focus:border-brand/60 sm:h-10 sm:text-sm"
           />
         </label>
 
-        <label className="flex items-center gap-2 text-sm text-ink-3">
-          <span className="sr-only sm:not-sr-only">Runs</span>
-          <select
-            value={runs}
-            onChange={(event) => setRuns(Number(event.target.value))}
-            title="How many independent forecasts to run in parallel and average"
-            className="rounded-xl border border-surface-3/70 bg-surface-1/70 px-3 py-2.5 text-sm text-ink-1 focus:border-brand/60"
-          >
-            {runChoices.map((choice) => (
-              <option key={choice} value={choice} className="bg-surface-1">
-                {choice === 1 ? "1 run" : `${choice} runs averaged`}
-              </option>
-            ))}
-          </select>
-        </label>
+        {/* Two native selects share a row on phones — they open the OS picker. */}
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-3">
+          <label className="contents sm:flex sm:items-center sm:gap-2">
+            <span className="sr-only">Forecast runs</span>
+            <select
+              value={runs}
+              onChange={(event) => setRuns(Number(event.target.value))}
+              title="How many independent forecasts to run in parallel and average"
+              className="h-11 w-full rounded-xl border border-surface-3/70 bg-surface-1/70 px-3 text-ink-1 focus:border-brand/60 sm:h-10 sm:w-auto sm:text-sm"
+            >
+              {runChoices.map((choice) => (
+                <option key={choice} value={choice} className="bg-surface-1">
+                  {choice === 1 ? "1 run" : `${choice} runs`}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label className="flex items-center gap-2 text-sm text-ink-3">
-          <span className="sr-only sm:not-sr-only">Sort</span>
-          <select
-            value={sort}
-            onChange={(event) => setSort(event.target.value as SortKey)}
-            className="rounded-xl border border-surface-3/70 bg-surface-1/70 px-3 py-2.5 text-sm text-ink-1 focus:border-brand/60"
-          >
-            {SORTS.map((option) => (
-              <option key={option.key} value={option.key} className="bg-surface-1">
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+          <label className="contents sm:flex sm:items-center sm:gap-2">
+            <span className="sr-only">Sort markets</span>
+            <select
+              value={sort}
+              onChange={(event) => setSort(event.target.value as SortKey)}
+              className="h-11 w-full rounded-xl border border-surface-3/70 bg-surface-1/70 px-3 text-ink-1 focus:border-brand/60 sm:h-10 sm:w-auto sm:text-sm"
+            >
+              {SORTS.map((option) => (
+                <option key={option.key} value={option.key} className="bg-surface-1">
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
 
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <p className="text-xs text-ink-3">{heading}</p>
         {runs > 1 ? (
           <p className="text-xs text-ink-3">
-            Each <span className="text-ink-1">Research</span> runs {runs} independent forecasts in
-            parallel and averages them — {runs}× the LLM cost.
+            {runs} forecasts averaged per research · {runs}× cost
           </p>
         ) : null}
       </div>
@@ -305,7 +308,7 @@ export function MarketBrowser({
       ) : null}
 
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => (
             <SkeletonCard key={index} />
           ))}
@@ -320,7 +323,7 @@ export function MarketBrowser({
           }
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
           {markets.map((market) => (
             <MarketCard
               key={market.id}
@@ -342,7 +345,7 @@ export function MarketBrowser({
             type="button"
             onClick={() => void loadMore()}
             disabled={loadingMore}
-            className="inline-flex items-center gap-2 rounded-xl border border-surface-3/70 px-4 py-2.5 text-sm font-medium text-ink-1 transition hover:bg-surface-2/70 disabled:opacity-50"
+            className="inline-flex h-12 items-center gap-2 rounded-xl border border-surface-3/70 px-5 text-sm font-medium text-ink-1 transition hover:bg-surface-2/70 disabled:opacity-50"
           >
             {loadingMore ? (
               <>

@@ -20,11 +20,11 @@ export function AnalysisHistoryCard({ analysis }: { analysis: Analysis }) {
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
-        className="flex w-full items-start gap-4 p-5 text-left transition hover:bg-surface-2/40"
+        className="flex w-full items-start gap-3 p-4 text-left transition hover:bg-surface-2/40 sm:gap-4 sm:p-5"
       >
         <div className="min-w-0 flex-1">
           <p className="text-xs text-ink-3">{formatDateTime(analysis.createdAt)}</p>
-          <h3 className="mt-1 text-[0.95rem] font-medium leading-snug text-ink-0">
+          <h3 className="mt-1 text-[0.95rem] font-medium leading-snug text-ink-0 sm:text-sm">
             {analysis.marketQuestion}
           </h3>
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -42,7 +42,7 @@ export function AnalysisHistoryCard({ analysis }: { analysis: Analysis }) {
       </button>
 
       {open ? (
-        <div className="hairline border-t px-5 py-5">
+        <div className="hairline border-t px-4 py-5 sm:px-5">
           <AnalysisResult analysis={analysis} />
           {analysis.marketUrl ? (
             <a

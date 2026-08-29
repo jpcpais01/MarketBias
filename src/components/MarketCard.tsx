@@ -26,13 +26,13 @@ export function MarketCard({
     now !== null && market.endDate ? new Date(market.endDate).getTime() < now : false;
 
   return (
-    <article className="panel flex flex-col gap-4 p-5 transition hover:border-brand/30">
+    <article className="panel flex flex-col gap-3.5 p-4 transition hover:border-brand/30 sm:gap-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           {market.eventTitle && market.eventTitle !== market.question ? (
             <p className="truncate text-xs text-ink-3">{market.eventTitle}</p>
           ) : null}
-          <h3 className="mt-0.5 line-clamp-3 text-[0.95rem] font-medium leading-snug text-ink-0">
+          <h3 className="mt-0.5 line-clamp-3 text-[0.95rem] font-medium leading-snug text-ink-0 sm:text-sm">
             {market.question}
           </h3>
         </div>
@@ -62,7 +62,7 @@ export function MarketCard({
           type="button"
           onClick={() => onResearch(market)}
           disabled={disabled}
-          className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-surface-0 transition hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-brand text-sm font-semibold text-surface-0 transition hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-50 sm:h-11"
         >
           {isResearching ? (
             <>
@@ -77,9 +77,19 @@ export function MarketCard({
             href={market.url}
             target="_blank"
             rel="noreferrer noopener"
-            className="rounded-lg border border-surface-3/70 px-3 py-2 text-sm text-ink-2 transition hover:bg-surface-2/70 hover:text-ink-0"
+            aria-label="Open this market on Polymarket"
+            title="Open on Polymarket"
+            className="inline-flex size-12 shrink-0 items-center justify-center rounded-xl border border-surface-3/70 text-ink-2 transition hover:bg-surface-2/70 hover:text-ink-0 sm:size-11"
           >
-            View ↗
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden className="size-[18px]">
+              <path
+                d="M14 5h5v5M19 5l-8 8M18 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h4"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </a>
         ) : null}
       </div>
