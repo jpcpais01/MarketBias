@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+/*
+ * TrueOdds design tokens. Dark-first: the app is a data surface, and the
+ * probability colours (emerald = YES, rose = NO, amber = disagreement) read
+ * more clearly against a dark ground.
+ */
+@theme {
+  --color-surface-0: oklch(0.17 0.014 265);
+  --color-surface-1: oklch(0.21 0.016 265);
+  --color-surface-2: oklch(0.25 0.018 265);
+  --color-surface-3: oklch(0.31 0.02 265);
+
+  --color-ink-0: oklch(0.97 0.005 265);
+  --color-ink-1: oklch(0.83 0.012 265);
+  --color-ink-2: oklch(0.68 0.016 265);
+  --color-ink-3: oklch(0.55 0.018 265);
+
+  --color-brand: oklch(0.72 0.16 235);
+  --color-brand-strong: oklch(0.63 0.18 250);
+
+  --color-yes: oklch(0.75 0.17 155);
+  --color-no: oklch(0.68 0.19 20);
+  --color-ai: oklch(0.74 0.16 285);
+  --color-warn: oklch(0.8 0.15 80);
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background:
+    radial-gradient(70rem 40rem at 15% -10%, oklch(0.28 0.07 260 / 0.5), transparent 60%),
+    radial-gradient(60rem 36rem at 95% 0%, oklch(0.28 0.06 300 / 0.35), transparent 55%),
+    var(--color-surface-0);
+  background-attachment: fixed;
+  color: var(--color-ink-0);
+  font-family: var(--font-sans);
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Utilities used often enough to be worth naming. */
+@utility panel {
+  background: color-mix(in oklab, var(--color-surface-1) 82%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-surface-3) 70%, transparent);
+  border-radius: 1rem;
+  backdrop-filter: blur(8px);
+}
+
+@utility hairline {
+  border-color: color-mix(in oklab, var(--color-surface-3) 70%, transparent);
+}
+
+/* Indeterminate progress shimmer for in-flight analysis stages. */
+@keyframes trueodds-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+.animate-sweep::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 25%;
+  background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--color-brand) 70%, transparent), transparent);
+  animation: trueodds-sweep 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-sweep::after {
+    animation: none;
+    width: 100%;
+    opacity: 0.4;
+  }
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-brand) 45%, transparent);
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
