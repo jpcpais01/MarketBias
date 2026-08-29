@@ -1,4 +1,4 @@
-import { AnalysisError, runAnalysis } from "@/lib/analysis";
+import { AnalysisError, resolveRunCount, runAnalysis } from "@/lib/analysis";
 import { ConfigError } from "@/lib/env";
 import { OpenRouterError } from "@/lib/openrouter";
 import { PolymarketError, getMarket } from "@/lib/polymarket";
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 /**
- * POST /api/analyze  { marketId: string, model?: string }
+ * POST /api/analyze  { marketId: string, model?: string, runs?: number }
  *
  * Streams newline-delimited JSON `AnalysisEvent`s so the client can show real
  * stage-by-stage progress. The final line is either a `result` or an `error`.
@@ -22,14 +22,21 @@ export const maxDuration = 300;
 export async function POST(request: Request) {
   let marketId: string;
   let model: string | undefined;
+  let runs: number | undefined;
 
   try {
-    const body = (await request.json()) as { marketId?: unknown; model?: unknown };
+    const body = (await request.json()) as {
+      marketId?: unknown;
+      model?: unknown;
+      runs?: unknown;
+    };
     if (typeof body.marketId !== "string" || !body.marketId.trim()) {
       return jsonError("A `marketId` is required.", 400);
     }
     marketId = body.marketId.trim();
     model = typeof body.model === "string" && body.model.trim() ? body.model.trim() : undefined;
+    // Clamped server-side, so an oversized `runs` cannot fan out the workload.
+    runs = typeof body.runs === "number" ? resolveRunCount(body.runs) : undefined;
   } catch {
     return jsonError("Request body must be JSON.", 400);
   }
@@ -46,7 +53,7 @@ export async function POST(request: Request) {
         send({ type: "stage", stage: "fetching-market", message: "Fetching the market and its resolution rules…" });
         const market = await getMarket(marketId);
 
-        const analysis = await runAnalysis({ market, model, onEvent: send });
+        const analysis = await runAnalysis({ market, model, runs, onEvent: send });
         send({ type: "result", analysis });
       } catch (error) {
         send({ type: "error", message: describeError(error) });

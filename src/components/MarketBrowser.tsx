@@ -47,10 +47,24 @@ async function fetchMarkets(query: string, sort: SortKey, offset: number): Promi
   return payload;
 }
 
-export function MarketBrowser({ recentAnalyses }: { recentAnalyses: Analysis[] }) {
+/** Parallel-run choices offered in the UI, capped by the server's ceiling. */
+const RUN_CHOICES = [1, 3, 5];
+
+export function MarketBrowser({
+  recentAnalyses,
+  defaultRuns,
+  maxRuns,
+}: {
+  recentAnalyses: Analysis[];
+  /** Server default from ANALYSIS_SAMPLE_RUNS. */
+  defaultRuns: number;
+  /** Server ceiling from ANALYSIS_MAX_SAMPLE_RUNS. */
+  maxRuns: number;
+}) {
   const [rawQuery, setRawQuery] = useState("");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("volume24hr");
+  const [runs, setRuns] = useState<number>(defaultRuns);
   // Bumped to force a refetch of the current key (the retry button).
   const [reloadToken, setReloadToken] = useState(0);
 
@@ -65,6 +79,11 @@ export function MarketBrowser({ recentAnalyses }: { recentAnalyses: Analysis[] }
   );
 
   const abortRef = useRef<AbortController | null>(null);
+
+  // Offer the standard choices plus the configured default, never above the cap.
+  const runChoices = Array.from(new Set([...RUN_CHOICES, defaultRuns]))
+    .filter((choice) => choice >= 1 && choice <= maxRuns)
+    .sort((a, b) => a - b);
 
   const key = `${reloadToken}|${sort}|${query}`;
   const loading = listing?.key !== key;
@@ -125,25 +144,44 @@ export function MarketBrowser({ recentAnalyses }: { recentAnalyses: Analysis[] }
     }
   }, [listing, query, sort]);
 
-  const startAnalysis = useCallback((market: Market) => {
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
+  const startResearch = useCallback(
+    (market: Market) => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
 
-    setAnalyze({
-      market,
-      stage: null,
-      message: "Starting the analysis…",
-      analysis: null,
-      error: null,
-      done: false,
-    });
+      setAnalyze({
+        market,
+        stage: null,
+        message: "Starting the research…",
+        analysis: null,
+        error: null,
+        done: false,
+        runs,
+        completed: 0,
+        failed: 0,
+        landed: [],
+      });
 
-    void streamAnalysis({ marketId: market.id }, (event) => {
+    void streamAnalysis({ marketId: market.id, runs }, (event) => {
       if (event.type === "stage") {
         setAnalyze((current) =>
           current && current.market.id === market.id
             ? { ...current, stage: event.stage, message: event.message }
+            : current,
+        );
+      } else if (event.type === "sample") {
+        setAnalyze((current) =>
+          current && current.market.id === market.id
+            ? {
+                ...current,
+                completed: event.completed,
+                failed: event.failed,
+                landed:
+                  event.probability === null
+                    ? current.landed
+                    : [...current.landed, event.probability],
+              }
             : current,
         );
       } else if (event.type === "result") {
@@ -169,13 +207,15 @@ export function MarketBrowser({ recentAnalyses }: { recentAnalyses: Analysis[] }
         current && current.market.id === market.id
           ? {
               ...current,
-              error: cause instanceof Error ? cause.message : "The analysis request failed.",
+              error: cause instanceof Error ? cause.message : "The research request failed.",
               done: true,
             }
           : current,
       );
     });
-  }, []);
+    },
+    [runs],
+  );
 
   const closeDrawer = useCallback(() => {
     abortRef.current?.abort();
@@ -215,6 +255,22 @@ export function MarketBrowser({ recentAnalyses }: { recentAnalyses: Analysis[] }
         </label>
 
         <label className="flex items-center gap-2 text-sm text-ink-3">
+          <span className="sr-only sm:not-sr-only">Runs</span>
+          <select
+            value={runs}
+            onChange={(event) => setRuns(Number(event.target.value))}
+            title="How many independent forecasts to run in parallel and average"
+            className="rounded-xl border border-surface-3/70 bg-surface-1/70 px-3 py-2.5 text-sm text-ink-1 focus:border-brand/60"
+          >
+            {runChoices.map((choice) => (
+              <option key={choice} value={choice} className="bg-surface-1">
+                {choice === 1 ? "1 run" : `${choice} runs averaged`}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex items-center gap-2 text-sm text-ink-3">
           <span className="sr-only sm:not-sr-only">Sort</span>
           <select
             value={sort}
@@ -230,7 +286,15 @@ export function MarketBrowser({ recentAnalyses }: { recentAnalyses: Analysis[] }
         </label>
       </div>
 
-      <p className="text-xs text-ink-3">{heading}</p>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-xs text-ink-3">{heading}</p>
+        {runs > 1 ? (
+          <p className="text-xs text-ink-3">
+            Each <span className="text-ink-1">Research</span> runs {runs} independent forecasts in
+            parallel and averages them — {runs}× the LLM cost.
+          </p>
+        ) : null}
+      </div>
 
       {error ? (
         <ErrorState
@@ -261,8 +325,8 @@ export function MarketBrowser({ recentAnalyses }: { recentAnalyses: Analysis[] }
             <MarketCard
               key={market.id}
               market={market}
-              onAnalyze={startAnalysis}
-              isAnalyzing={inFlightId === market.id}
+              onResearch={startResearch}
+              isResearching={inFlightId === market.id}
               disabled={inFlightId !== null}
               priorAnalyses={analysisCounts[market.id] ?? 0}
             />
@@ -295,7 +359,7 @@ export function MarketBrowser({ recentAnalyses }: { recentAnalyses: Analysis[] }
         <AnalyzeDrawer
           state={analyze}
           onClose={closeDrawer}
-          onRetry={() => startAnalysis(analyze.market)}
+          onRetry={() => startResearch(analyze.market)}
         />
       ) : null}
     </section>

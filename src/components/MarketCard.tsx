@@ -8,14 +8,14 @@ import { useClientNow } from "@/lib/useClientNow";
 
 export function MarketCard({
   market,
-  onAnalyze,
-  isAnalyzing,
+  onResearch,
+  isResearching,
   disabled,
   priorAnalyses = 0,
 }: {
   market: Market;
-  onAnalyze: (market: Market) => void;
-  isAnalyzing: boolean;
+  onResearch: (market: Market) => void;
+  isResearching: boolean;
   disabled: boolean;
   /** Count of stored forecasts for this market, shown as a history hint. */
   priorAnalyses?: number;
@@ -43,7 +43,10 @@ export function MarketCard({
         ) : null}
       </div>
 
-      <ProbabilityBar probability={market.yesProbability} />
+      {/* Gamma prices are 0-1 fractions; the bar takes percentages. */}
+      <ProbabilityBar
+        probability={market.yesProbability === null ? null : market.yesProbability * 100}
+      />
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-3">
         <span title="Total traded volume">Vol {formatMoney(market.volume)}</span>
@@ -57,16 +60,16 @@ export function MarketCard({
       <div className="mt-auto flex items-center gap-2 pt-1">
         <button
           type="button"
-          onClick={() => onAnalyze(market)}
+          onClick={() => onResearch(market)}
           disabled={disabled}
           className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-surface-0 transition hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isAnalyzing ? (
+          {isResearching ? (
             <>
-              <Spinner /> Analyzing…
+              <Spinner /> Researching…
             </>
           ) : (
-            "Analyze"
+            "Research"
           )}
         </button>
         {market.url ? (

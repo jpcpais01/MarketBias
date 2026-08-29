@@ -35,6 +35,9 @@ export default async function DashboardPage() {
           ) : (
             <Badge tone="warn">Web research off</Badge>
           )}
+          {summary.sampleRuns > 1 ? (
+            <Badge tone="ai">{summary.sampleRuns} runs averaged</Badge>
+          ) : null}
         </div>
 
         <div>
@@ -45,6 +48,8 @@ export default async function DashboardPage() {
             TrueOdds asks an AI forecaster to research a Polymarket question and commit to a
             probability <em>before</em> it is shown the market price. Only then is the price
             revealed, for a review that is free to disagree. The gap between the two is the signal.
+            Markets are listed without any model involvement — research runs only when you ask for
+            it, on the market you pick.
           </p>
         </div>
 
@@ -74,7 +79,11 @@ export default async function DashboardPage() {
         ) : null}
       </section>
 
-      <MarketBrowser recentAnalyses={recent} />
+      <MarketBrowser
+        recentAnalyses={recent}
+        defaultRuns={summary.sampleRuns}
+        maxRuns={summary.maxSampleRuns}
+      />
     </div>
   );
 }

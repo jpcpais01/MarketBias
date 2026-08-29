@@ -6,7 +6,7 @@
  * explicitly permitted — and encouraged — to disagree.
  */
 
-import type { BlindForecast, Market } from "@/lib/types";
+import type { BlindForecast, Ensemble, Market } from "@/lib/types";
 
 function formatDate(iso: string | null): string {
   if (!iso) return "not published";
@@ -114,6 +114,7 @@ export function buildStageTwoUser(
   market: Market,
   forecast: BlindForecast,
   polymarketProbability: number | null,
+  ensemble?: Ensemble,
 ): string {
   const marketLine =
     polymarketProbability === null
@@ -127,9 +128,20 @@ export function buildStageTwoUser(
           forecast.probability > polymarketProbability ? "above" : "below"
         } your estimate.`;
 
+  // With several runs, the spread between them is itself evidence about how
+  // stable the estimate is, so the reviewer is told about it explicitly.
+  const ensembleNote =
+    ensemble && ensemble.completed > 1
+      ? `
+This estimate is the mean of ${ensemble.completed} independent forecasting runs of the same question, each made without sight of any market price.
+Individual runs: ${ensemble.samples.map((sample) => `${sample.probability}%`).join(", ")}
+Median ${ensemble.median}%, range ${ensemble.min}-${ensemble.max}%, standard deviation ${ensemble.stdDev} points.
+A wide spread means the evidence supports a range of readings, so treat the mean as less firm. A tight spread means the runs converged independently, which makes an unexplained gap with the market more notable, not less.`
+      : "";
+
   return `QUESTION: ${market.question}
 
-YOUR INDEPENDENT ESTIMATE (made without seeing any market price): ${forecast.probability}%
+YOUR INDEPENDENT ESTIMATE (made without seeing any market price): ${forecast.probability}%${ensembleNote}
 Your confidence: ${forecast.confidence}
 Your reasoning: ${forecast.reasoning}
 Your key drivers: ${forecast.keyDrivers.join("; ") || "none recorded"}

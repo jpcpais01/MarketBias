@@ -5,9 +5,10 @@ import {
   formatDate,
   formatDateTime,
   formatDuration,
+  formatPercent,
   hostnameOf,
 } from "@/lib/format";
-import type { Analysis, Confidence } from "@/lib/types";
+import type { Analysis, Confidence, Ensemble } from "@/lib/types";
 
 const CONFIDENCE_TONE: Record<Confidence, "no" | "warn" | "yes"> = {
   low: "no",
@@ -25,6 +26,10 @@ export function AnalysisResult({ analysis, compact = false }: { analysis: Analys
         blindProbability={analysis.blindProbability}
         deviation={analysis.deviation}
       />
+
+      {analysis.ensemble && analysis.ensemble.completed > 1 ? (
+        <EnsembleSpread ensemble={analysis.ensemble} />
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone={CONFIDENCE_TONE[analysis.confidence]}>
@@ -116,10 +121,18 @@ export function AnalysisResult({ analysis, compact = false }: { analysis: Analys
 
       {compact ? null : (
         <dl className="hairline grid grid-cols-2 gap-4 border-t pt-4 sm:grid-cols-4">
-          <Stat label="Analysed" value={formatDateTime(analysis.createdAt)} />
+          <Stat label="Researched" value={formatDateTime(analysis.createdAt)} />
           <Stat label="Market expiry" value={formatDate(analysis.marketEndDate)} />
           <Stat label="Model" value={<span className="font-mono text-xs">{analysis.model}</span>} />
-          <Stat label="Run time" value={formatDuration(analysis.durationMs)} />
+          <Stat
+            label="Run time"
+            value={formatDuration(analysis.durationMs)}
+            hint={
+              analysis.ensemble && analysis.ensemble.requested > 1
+                ? `${analysis.ensemble.completed}/${analysis.ensemble.requested} forecasts`
+                : undefined
+            }
+          />
         </dl>
       )}
     </div>
@@ -164,5 +177,74 @@ function List({ items, emptyText }: { items: string[]; emptyText?: string }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * Distribution of the parallel forecasts on a 0-100 axis.
+ *
+ * The spread is the point: it separates "the model is consistently confident"
+ * from "the model's answer moves 30 points between runs", which a single
+ * averaged number would hide.
+ */
+function EnsembleSpread({ ensemble }: { ensemble: Ensemble }) {
+  const agreement =
+    ensemble.stdDev < 5 ? "tight" : ensemble.stdDev < 12 ? "moderate" : "wide";
+  const tone = agreement === "tight" ? "yes" : agreement === "moderate" ? "warn" : "no";
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-surface-3/60 bg-surface-1/60 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
+          {ensemble.completed} independent forecasts, averaged
+        </h3>
+        <Badge tone={tone}>{agreement} agreement · σ {ensemble.stdDev} pts</Badge>
+      </div>
+
+      <div className="relative h-8">
+        <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-surface-3/60" />
+        {/* Range bar between the lowest and highest run. */}
+        <div
+          className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-ai/40"
+          style={{ left: `${ensemble.min}%`, width: `${Math.max(ensemble.max - ensemble.min, 0.5)}%` }}
+        />
+        {ensemble.samples.map((sample) => (
+          <span
+            key={sample.index}
+            title={`Run ${sample.index + 1}: ${formatPercent(sample.probability)} (${sample.confidence} confidence)`}
+            className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-ai ring-2 ring-surface-1"
+            style={{ left: `${sample.probability}%` }}
+          />
+        ))}
+        <span
+          title={`Mean: ${formatPercent(ensemble.mean)}`}
+          className="absolute top-1/2 h-6 w-0.5 -translate-x-1/2 -translate-y-1/2 bg-ink-0"
+          style={{ left: `${ensemble.mean}%` }}
+        />
+      </div>
+
+      {/* Scale, so a dot's position reads as a probability rather than a blob. */}
+      <div className="-mt-2 flex justify-between font-mono text-[0.65rem] text-ink-3">
+        <span>0%</span>
+        <span>50%</span>
+        <span>100%</span>
+      </div>
+
+      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Stat label="Mean" value={formatPercent(ensemble.mean)} />
+        <Stat label="Median" value={formatPercent(ensemble.median)} />
+        <Stat label="Range" value={`${formatPercent(ensemble.min)} – ${formatPercent(ensemble.max)}`} />
+        <Stat
+          label="Runs"
+          value={`${ensemble.completed} of ${ensemble.requested}`}
+          hint={ensemble.failed > 0 ? `${ensemble.failed} failed` : undefined}
+        />
+      </dl>
+
+      <p className="text-xs leading-relaxed text-ink-3">
+        Reasoning below comes from run {ensemble.representativeIndex + 1}, the one nearest the mean.
+        Evidence, uncertainties and sources are pooled across all runs.
+      </p>
+    </div>
   );
 }

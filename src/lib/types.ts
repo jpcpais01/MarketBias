@@ -91,6 +91,41 @@ export interface DiscrepancyReview {
 export interface AnalysisRequestOptions {
   /** Overrides the model for a single run; defaults to OPENROUTER_MODEL. */
   model?: string;
+  /** Number of independent blind forecasts to run in parallel and average. */
+  runs?: number;
+}
+
+/** One completed blind forecast within an ensemble. */
+export interface EnsembleSample {
+  index: number;
+  probability: number; // 0-100
+  confidence: Confidence;
+  reasoning: string;
+}
+
+/**
+ * Spread statistics across the parallel blind forecasts.
+ *
+ * `stdDev` is the honest headline here: it measures how much the model
+ * disagrees with itself, which is a different thing from the confidence the
+ * model reports about the world.
+ */
+export interface Ensemble {
+  /** Runs requested by the caller. */
+  requested: number;
+  /** Runs that returned a usable forecast. */
+  completed: number;
+  /** Runs that errored; the analysis proceeds on the survivors. */
+  failed: number;
+  samples: EnsembleSample[];
+  mean: number;
+  median: number;
+  /** Population standard deviation of the sample probabilities. */
+  stdDev: number;
+  min: number;
+  max: number;
+  /** Index of the sample nearest the mean, whose reasoning is shown. */
+  representativeIndex: number;
 }
 
 /** A persisted, timestamped analysis. Records are append-only. */
@@ -104,7 +139,10 @@ export interface Analysis {
   marketEndDate: string | null;
   /** Market YES probability at analysis time, 0-100. Snapshotted, never updated. */
   polymarketProbability: number | null;
-  /** Blind estimate, before the market price was revealed, 0-100. */
+  /**
+   * Blind estimate, before the market price was revealed, 0-100.
+   * With multiple runs this is the mean across the ensemble.
+   */
   blindProbability: number;
   /** Post-review estimate, 0-100. This is the headline "AI probability". */
   aiProbability: number;
@@ -122,6 +160,11 @@ export interface Analysis {
   /** Model id actually used for the run. */
   model: string;
   webSearchEnabled: boolean;
+  /**
+   * Spread across the parallel blind forecasts. Optional so that records
+   * written before ensembles existed still load.
+   */
+  ensemble?: Ensemble;
   /** Wall-clock duration of the full workflow, in milliseconds. */
   durationMs: number;
 }
@@ -137,5 +180,13 @@ export type AnalysisStage =
 
 export type AnalysisEvent =
   | { type: "stage"; stage: AnalysisStage; message: string }
+  /** Emitted as each parallel forecast lands, for live ensemble progress. */
+  | {
+      type: "sample";
+      completed: number;
+      failed: number;
+      total: number;
+      probability: number | null;
+    }
   | { type: "result"; analysis: Analysis }
   | { type: "error"; message: string };

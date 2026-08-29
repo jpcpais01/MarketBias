@@ -8,11 +8,13 @@ The point is the gap. A model that is shown the market price first will anchor o
 
 ## How the analysis works
 
+**Nothing is researched automatically.** Browsing calls Polymarket's API only — zero LLM calls, zero cost. A market is analysed when, and only when, you press **Research** on that card.
+
 | Stage | What happens | Market price visible to the model? |
 |---|---|---|
 | 1. Fetch | The exact question, description and resolution criteria are pulled from Polymarket. | — |
-| 2. Research | The model searches the web: latest news, primary sources, historical base rates, evidence for YES, evidence for NO, and what it does not know. | **No** |
-| 3. Estimate | It commits to a probability from 0–100% with a confidence level. | **No** |
+| 2. Research | The model searches the web: latest news, primary sources, historical base rates, evidence for YES, evidence for NO, and what it does not know. Runs N times in parallel if you ask for more than one. | **No** |
+| 3. Estimate | Each run commits to a probability from 0–100% with a confidence level; the runs are averaged. | **No** |
 | 4. Reveal | The Polymarket probability is disclosed. | Yes |
 | 5. Review | It reviews the discrepancy under instructions that treat an unexplained gap as a *finding*, not an error — revision requires naming a specific reason. | Yes |
 
@@ -21,6 +23,19 @@ Stage 1 and 2 prompts are built by `src/lib/prompts.ts`, which constructs market
 **Output for every analysis:** Polymarket probability · AI probability · percentage-point deviation · confidence · reasoning · YES evidence · NO evidence · uncertainties · base rates · cited sources · the full discrepancy review.
 
 Both numbers are kept: the **blind** estimate and the **post-review** estimate. When a review revises the forecast, the UI marks where the blind estimate sat, so anchoring is visible rather than hidden.
+
+### Averaging several runs
+
+A single LLM forecast is noisy — the same question asked twice can differ by 15 points. The **runs** selector on the dashboard runs N independent forecasts *in parallel* and averages them.
+
+- Each run is a separate request that cannot see the others, so the runs are genuinely independent rather than one model talking itself into a number.
+- They are issued concurrently, so 5 runs take roughly the wall time of 1 — but **cost 5×**.
+- Failures are tolerated: if 4 of 5 return, the analysis proceeds on those 4 and records that one failed.
+- The result reports mean, median, range and **standard deviation**. The σ is the useful part: it measures how much the model disagrees *with itself*, which is a different question from the confidence it reports about the world. A tight spread that still disagrees with the market is a much stronger signal than a wide one.
+- Evidence, uncertainties and sources are pooled across all runs; the narrative reasoning is taken from the run nearest the mean, so the prose stays consistent with its number rather than being stitched together.
+- The spread is passed to the discrepancy review, which is told to treat a wide spread as grounds for holding the estimate loosely.
+
+Set the default with `ANALYSIS_SAMPLE_RUNS` (default `1`); users can override it per research run in the UI, up to `ANALYSIS_MAX_SAMPLE_RUNS` (default `8`).
 
 ---
 
@@ -37,7 +52,7 @@ cp .env.example .env.local
 npm run dev          # http://localhost:3000
 ```
 
-That is the whole setup. Browsing markets needs no key at all (Polymarket's API is public); only **Analyze** requires `OPENROUTER_API_KEY`. Locally, analyses are written to `.data/analyses/` with no database to configure.
+That is the whole setup. Browsing markets needs no key at all (Polymarket's API is public); only **Research** requires `OPENROUTER_API_KEY`. Locally, analyses are written to `.data/analyses/` with no database to configure.
 
 ### Changing the model
 
@@ -64,13 +79,15 @@ Any id from [openrouter.ai/models](https://openrouter.ai/models) works. Pick a m
    | `UPSTASH_REDIS_REST_URL` | for durable history | See step 3. |
    | `UPSTASH_REDIS_REST_TOKEN` | for durable history | See step 3. |
 
+   Those four are the whole list. Everything else in `.env.example` is commented out and documents a default — **do not add them to Vercel unless you are changing the value**. If you pasted the whole file into Vercel's import box and ended up with a dozen variables, delete every one except the four above; they are all optional, and one of them (`OPENROUTER_API_KEY=sk-or-v1-replace-me`) is a placeholder that will fail every request until you replace it.
+
 3. **Add storage so forecasts persist.** Vercel's filesystem is ephemeral, so without a database the app falls back to an in-memory store and the dashboard warns you. Open the Vercel **Storage** tab → create an **Upstash Redis** database (free tier is ample) → connect it to the project. The integration sets `KV_REST_API_URL` / `KV_REST_API_TOKEN`, which this app reads as aliases. Or create a database directly at [upstash.com](https://upstash.com) and paste the two REST values.
 
 4. **Deploy.** Visit `/api/health` afterwards to confirm the model, web-search flag and store driver resolved as expected.
 
 ### Function duration
 
-`POST /api/analyze` sets `maxDuration = 300`, since a research-backed run makes two LLM calls and typically takes 30–120 seconds. 300s is the Fluid Compute ceiling on Vercel's Hobby plan. If your plan or host caps function duration lower, reduce `maxDuration` in `src/app/api/analyze/route.ts` and lower `OPENROUTER_TIMEOUT_MS` to match.
+`POST /api/analyze` sets `maxDuration = 300`, since a research-backed run makes N + 1 LLM calls and typically takes 30–120 seconds. Parallel runs overlap, so raising the run count costs money rather than time. 300s is the Fluid Compute ceiling on Vercel's Hobby plan. If your plan or host caps function duration lower, reduce `maxDuration` in `src/app/api/analyze/route.ts` and lower `OPENROUTER_TIMEOUT_MS` to match.
 
 The route streams NDJSON progress events, so the user sees each stage as it happens rather than a spinner that might be dead.
 
@@ -126,7 +143,7 @@ Every analysis is saved under a fresh UUID and pushed onto a history list. **Not
 |---|---|
 | `GET /api/markets?q=&limit=&offset=&order=&ascending=` | Active binary markets. `q` filters a bounded pool of top-volume markets. |
 | `GET /api/markets/:id` | One market, normalised. |
-| `POST /api/analyze` `{ marketId, model? }` | Runs the workflow. Streams NDJSON: `{type:"stage"}` events, then `{type:"result"}` or `{type:"error"}`. `model` overrides `OPENROUTER_MODEL` for one run. |
+| `POST /api/analyze` `{ marketId, model?, runs? }` | Runs the workflow. Streams NDJSON: `{type:"stage"}` and `{type:"sample"}` events, then `{type:"result"}` or `{type:"error"}`. `model` overrides `OPENROUTER_MODEL`; `runs` overrides `ANALYSIS_SAMPLE_RUNS`, clamped server-side to `ANALYSIS_MAX_SAMPLE_RUNS`. |
 | `GET /api/analyses?marketId=&limit=&offset=` | Saved forecasts, newest first. |
 | `GET /api/analyses/:id` | One saved forecast. |
 | `GET /api/health` | Model, web-search flag, key-configured flag, store driver. |
@@ -149,6 +166,6 @@ npm run typecheck  # tsc --noEmit
 
 - **Search scope.** Gamma's `/markets` endpoint has no text-query parameter, so search scans a bounded pool (500) of the highest-volume active markets and filters locally. It finds active, liquid markets well; it will not find an obscure long-tail market.
 - **Binary markets only.** The workflow forecasts one YES probability, so multi-outcome markets are filtered out of listings.
-- **Cost.** Each analysis is two LLM calls, the first with web search. Cost depends entirely on `OPENROUTER_MODEL` — check its pricing on OpenRouter before running many analyses.
+- **Cost.** Each analysis is N + 1 LLM calls (N parallel blind forecasts plus one review), the blind ones with web search. Cost depends entirely on `OPENROUTER_MODEL` and your runs setting — check pricing on OpenRouter before running many analyses at 5×.
 - **Calibration is not verified.** TrueOdds records forecasts; it does not yet score them against resolved outcomes. Every record stores the market price at analysis time, so retrospective scoring is possible once markets resolve.
 - **These are model estimates, not advice.** A confident-looking probability with cited sources can still be wrong.

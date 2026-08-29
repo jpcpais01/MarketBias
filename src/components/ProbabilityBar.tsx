@@ -1,6 +1,11 @@
 import { deviationBand, formatPercent, formatSignedPoints } from "@/lib/format";
 
-/** Single YES probability bar, used on market cards. */
+/**
+ * Single YES probability bar, used on market cards.
+ *
+ * `probability` is a PERCENTAGE (0-100), matching the analysis record fields.
+ * Polymarket prices are 0-1 fractions, so convert at the call site.
+ */
 export function ProbabilityBar({
   probability,
   label = "Polymarket YES",

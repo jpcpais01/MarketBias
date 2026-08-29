@@ -10,7 +10,7 @@ import type { Analysis, AnalysisStage, Market } from "@/lib/types";
 export const STAGE_SEQUENCE: { stage: AnalysisStage; label: string }[] = [
   { stage: "fetching-market", label: "Reading the market question and resolution rules" },
   { stage: "researching", label: "Researching evidence (market price hidden from the model)" },
-  { stage: "estimating", label: "Forming an independent probability estimate" },
+  { stage: "estimating", label: "Averaging the independent probability estimates" },
   { stage: "revealing-market-price", label: "Revealing the Polymarket price" },
   { stage: "reviewing", label: "Reviewing the discrepancy" },
   { stage: "saving", label: "Saving the timestamped forecast" },
@@ -23,6 +23,12 @@ export interface AnalyzeState {
   analysis: Analysis | null;
   error: string | null;
   done: boolean;
+  /** Live ensemble progress while the parallel forecasts are in flight. */
+  runs: number;
+  completed: number;
+  failed: number;
+  /** Probabilities of the runs that have landed so far. */
+  landed: number[];
 }
 
 export function AnalyzeDrawer({
@@ -73,7 +79,11 @@ export function AnalyzeDrawer({
         <header className="hairline flex items-start justify-between gap-4 border-b px-5 py-4">
           <div className="min-w-0">
             <p className="text-xs uppercase tracking-wide text-ink-3">
-              {state.done && state.analysis ? "Analysis complete" : "Analyzing market"}
+              {state.done && state.analysis
+                ? "Research complete"
+                : state.runs > 1
+                  ? `Researching · ${state.runs} parallel forecasts`
+                  : "Researching market"}
             </p>
             <h2 className="mt-1 text-base font-semibold leading-snug text-ink-0">
               {state.market.question}
@@ -91,11 +101,11 @@ export function AnalyzeDrawer({
 
         <div className="flex-1 overflow-y-auto px-5 py-5">
           {state.error ? (
-            <ErrorState title="Analysis failed" message={state.error} onRetry={onRetry} />
+            <ErrorState title="Research failed" message={state.error} onRetry={onRetry} />
           ) : state.analysis ? (
             <AnalysisResult analysis={state.analysis} />
           ) : (
-            <StageProgress activeIndex={activeIndex} message={state.message} />
+            <StageProgress activeIndex={activeIndex} message={state.message} state={state} />
           )}
         </div>
       </div>
@@ -103,7 +113,17 @@ export function AnalyzeDrawer({
   );
 }
 
-function StageProgress({ activeIndex, message }: { activeIndex: number; message: string }) {
+function StageProgress({
+  activeIndex,
+  message,
+  state,
+}: {
+  activeIndex: number;
+  message: string;
+  state: AnalyzeState;
+}) {
+  const settled = state.completed + state.failed;
+
   return (
     <div className="flex flex-col gap-6">
       <div className="relative h-1 w-full overflow-hidden rounded-full bg-surface-3/60">
@@ -141,13 +161,38 @@ function StageProgress({ activeIndex, message }: { activeIndex: number; message:
         })}
       </ol>
 
+      {state.runs > 1 && settled > 0 ? (
+        <div className="flex flex-col gap-2 rounded-xl bg-surface-2/60 px-4 py-3">
+          <div className="flex items-baseline justify-between text-xs">
+            <span className="text-ink-3">
+              {settled} of {state.runs} forecasts returned
+              {state.failed > 0 ? ` · ${state.failed} failed` : ""}
+            </span>
+            <span className="font-mono text-ink-1 tabular-nums">
+              {state.landed.map((value) => `${value}%`).join("  ")}
+            </span>
+          </div>
+          <div className="flex gap-1">
+            {Array.from({ length: state.runs }).map((_, index) => (
+              <span
+                key={index}
+                className={`h-1.5 flex-1 rounded-full ${
+                  index < settled ? "bg-ai" : "bg-surface-3/60"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <p aria-live="polite" className="rounded-xl bg-surface-2/60 px-4 py-3 text-sm text-ink-2">
         {message || "Starting…"}
       </p>
 
       <p className="text-xs leading-relaxed text-ink-3">
-        Research-grade forecasts take time — a full run typically needs 30–120 seconds because the
-        model searches the web before committing to a number. Keep this panel open.
+        Research-grade forecasts take time — each run needs 30–120 seconds because the model
+        searches the web before committing to a number. Parallel runs happen at once, so more runs
+        cost more but take little extra time. Keep this panel open.
       </p>
     </div>
   );

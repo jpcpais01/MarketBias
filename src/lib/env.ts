@@ -51,6 +51,12 @@ export const config = {
     jsonMode: bool("OPENROUTER_JSON_MODE", false),
     timeoutMs: int("OPENROUTER_TIMEOUT_MS", 240_000),
   },
+  analysis: {
+    /** Default number of parallel blind forecasts to average per research run. */
+    sampleRuns: int("ANALYSIS_SAMPLE_RUNS", 1),
+    /** Hard ceiling on runs, so a crafted request cannot fan out arbitrarily. */
+    maxSampleRuns: int("ANALYSIS_MAX_SAMPLE_RUNS", 8),
+  },
   polymarket: {
     gammaUrl: optional("POLYMARKET_GAMMA_URL") ?? "https://gamma-api.polymarket.com",
     /** Cache window (seconds) for market list/detail fetches. */
@@ -83,5 +89,7 @@ export function publicConfigSummary() {
     model: config.openRouter.model,
     webSearchEnabled: config.openRouter.webSearch,
     openRouterConfigured: Boolean(config.openRouter.apiKey),
+    sampleRuns: config.analysis.sampleRuns,
+    maxSampleRuns: config.analysis.maxSampleRuns,
   };
 }

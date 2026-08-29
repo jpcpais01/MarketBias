@@ -8,7 +8,7 @@
 import type { AnalysisEvent } from "@/lib/types";
 
 export async function streamAnalysis(
-  body: { marketId: string; model?: string },
+  body: { marketId: string; model?: string; runs?: number },
   onEvent: (event: AnalysisEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {

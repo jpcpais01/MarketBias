@@ -28,6 +28,8 @@ import type {
   BlindForecast,
   Confidence,
   DiscrepancyReview,
+  Ensemble,
+  EnsembleSample,
   Market,
   Source,
 } from "@/lib/types";
@@ -135,6 +137,170 @@ function mergeSources(...groups: Source[][]): Source[] {
   return merged;
 }
 
+
+/* ------------------------------- ensemble -------------------------------- */
+
+function mean(values: number[]): number {
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
+}
+
+function stdDev(values: number[], average: number): number {
+  if (values.length < 2) return 0;
+  const variance = mean(values.map((value) => (value - average) ** 2));
+  return Math.sqrt(variance);
+}
+
+const round1 = (value: number) => Math.round(value * 10) / 10;
+
+/** Most frequent confidence across the ensemble; ties resolve to the lower one. */
+function modalConfidence(values: Confidence[]): Confidence {
+  const order: Confidence[] = ["low", "medium", "high"];
+  const counts = new Map<Confidence, number>();
+  for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
+
+  let best: Confidence = "medium";
+  let bestCount = -1;
+  for (const candidate of order) {
+    const count = counts.get(candidate) ?? 0;
+    if (count > bestCount) {
+      best = candidate;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
+/**
+ * Merges the ensemble's blind forecasts into one.
+ *
+ * Numbers are averaged; evidence, uncertainties and sources are unioned so a
+ * point raised by any single run survives into the output. The narrative
+ * fields come from the run nearest the mean rather than being stitched
+ * together, so the reasoning stays internally consistent with its number.
+ */
+function aggregate(forecasts: BlindForecast[], requested: number, failed: number) {
+  const probabilities = forecasts.map((f) => f.probability);
+  const average = mean(probabilities);
+
+  // The run closest to the mean speaks for the ensemble.
+  let representativeIndex = 0;
+  let smallestGap = Number.POSITIVE_INFINITY;
+  forecasts.forEach((forecast, index) => {
+    const gap = Math.abs(forecast.probability - average);
+    if (gap < smallestGap) {
+      smallestGap = gap;
+      representativeIndex = index;
+    }
+  });
+
+  const representative = forecasts[representativeIndex];
+
+  const samples: EnsembleSample[] = forecasts.map((forecast, index) => ({
+    index,
+    probability: forecast.probability,
+    confidence: forecast.confidence,
+    reasoning: forecast.reasoning,
+  }));
+
+  const ensemble: Ensemble = {
+    requested,
+    completed: forecasts.length,
+    failed,
+    samples,
+    mean: round1(average),
+    median: round1(median(probabilities)),
+    stdDev: round1(stdDev(probabilities, average)),
+    min: Math.min(...probabilities),
+    max: Math.max(...probabilities),
+    representativeIndex,
+  };
+
+  const merged: BlindForecast = {
+    probability: round1(average),
+    confidence: modalConfidence(forecasts.map((f) => f.confidence)),
+    reasoning: representative.reasoning,
+    keyDrivers: unionStrings(forecasts.map((f) => f.keyDrivers)),
+    baseRates: unionStrings(forecasts.map((f) => f.baseRates)),
+    evidenceFor: unionStrings(forecasts.map((f) => f.evidenceFor)),
+    evidenceAgainst: unionStrings(forecasts.map((f) => f.evidenceAgainst)),
+    uncertainties: unionStrings(forecasts.map((f) => f.uncertainties)),
+    sources: mergeSources(...forecasts.map((f) => f.sources)),
+  };
+
+  return { merged, ensemble };
+}
+
+/** Union of string lists, case-insensitively de-duplicated, order preserved. */
+function unionStrings(groups: string[][], limit = 16): string[] {
+  const seen = new Set<string>();
+  const merged: string[] = [];
+  // Round-robin across runs so no single run's list crowds out the others.
+  const depth = Math.max(0, ...groups.map((group) => group.length));
+  for (let position = 0; position < depth; position += 1) {
+    for (const group of groups) {
+      const item = group[position];
+      if (!item) continue;
+      const key = item.trim().toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(item);
+      if (merged.length >= limit) return merged;
+    }
+  }
+  return merged;
+}
+
+/**
+ * Runs `count` blind forecasts in parallel and aggregates them.
+ *
+ * Individual failures are tolerated: the analysis proceeds on whatever
+ * returned, and only a total wipeout throws. Each run is an independent
+ * request, so the model cannot see its other attempts.
+ */
+async function runBlindEnsemble(
+  market: Market,
+  model: string,
+  count: number,
+  onSample: (completed: number, failed: number, probability: number | null) => void,
+) {
+  let completed = 0;
+  let failed = 0;
+
+  const settled = await Promise.allSettled(
+    Array.from({ length: count }, async () => {
+      const forecast = await runBlindForecast(market, model);
+      completed += 1;
+      onSample(completed, failed, forecast.probability);
+      return forecast;
+    }).map((promise) =>
+      promise.catch((error: unknown) => {
+        failed += 1;
+        onSample(completed, failed, null);
+        throw error;
+      }),
+    ),
+  );
+
+  const forecasts = settled
+    .filter((result): result is PromiseFulfilledResult<BlindForecast> => result.status === "fulfilled")
+    .map((result) => result.value);
+
+  if (forecasts.length === 0) {
+    const firstRejection = settled.find((result) => result.status === "rejected");
+    const reason = firstRejection?.status === "rejected" ? firstRejection.reason : null;
+    if (reason instanceof Error) throw reason;
+    throw new AnalysisError("Every forecasting run failed.", 502);
+  }
+
+  return aggregate(forecasts, count, failed);
+}
+
 /* ------------------------------- stages ---------------------------------- */
 
 async function runBlindForecast(market: Market, model: string): Promise<BlindForecast> {
@@ -170,6 +336,7 @@ async function runDiscrepancyReview(
   forecast: BlindForecast,
   polymarketProbability: number | null,
   model: string,
+  ensemble?: Ensemble,
 ): Promise<DiscrepancyReview> {
   const result = await chat({
     model,
@@ -179,7 +346,7 @@ async function runDiscrepancyReview(
     json: true,
     messages: [
       { role: "system", content: STAGE_TWO_SYSTEM },
-      { role: "user", content: buildStageTwoUser(market, forecast, polymarketProbability) },
+      { role: "user", content: buildStageTwoUser(market, forecast, polymarketProbability, ensemble) },
     ],
   });
 
@@ -202,8 +369,21 @@ async function runDiscrepancyReview(
 export interface RunAnalysisOptions {
   market: Market;
   model?: string;
+  /** Parallel blind forecasts to average. Defaults to ANALYSIS_SAMPLE_RUNS. */
+  runs?: number;
   /** Called as each stage begins, for streaming progress to the client. */
   onEvent?: (event: AnalysisEvent) => void;
+}
+
+/** Clamps a requested run count to the configured ceiling. */
+export function resolveRunCount(requested?: number): number {
+  const fallback = config.analysis.sampleRuns;
+  if (requested === undefined || !Number.isFinite(requested)) return clampRuns(fallback);
+  return clampRuns(Math.floor(requested));
+}
+
+function clampRuns(value: number): number {
+  return Math.min(Math.max(value, 1), Math.max(config.analysis.maxSampleRuns, 1));
 }
 
 /**
@@ -212,29 +392,50 @@ export interface RunAnalysisOptions {
  * The returned record is always new: `save` appends, so re-analysing a market
  * adds a forecast to its history instead of replacing the previous one.
  */
-export async function runAnalysis({ market, model, onEvent }: RunAnalysisOptions): Promise<Analysis> {
+export async function runAnalysis({
+  market,
+  model,
+  runs,
+  onEvent,
+}: RunAnalysisOptions): Promise<Analysis> {
   const startedAt = Date.now();
   const resolvedModel = model?.trim() || config.openRouter.model;
+  const runCount = resolveRunCount(runs);
   const emit = (event: AnalysisEvent) => onEvent?.(event);
 
   // Snapshotted here so the comparison is against the price at analysis time.
   const polymarketProbability =
     market.yesProbability === null ? null : Math.round(market.yesProbability * 1000) / 10;
 
+  const research = config.openRouter.webSearch
+    ? "Researching current information, primary sources and base rates"
+    : "Reasoning from the model's own knowledge (web search is disabled)";
+
   emit({
     type: "stage",
     stage: "researching",
-    message: config.openRouter.webSearch
-      ? "Researching current information, primary sources and base rates…"
-      : "Reasoning from the model's own knowledge (web search is disabled)…",
+    message:
+      runCount === 1
+        ? `${research}…`
+        : `${research} across ${runCount} independent forecasts in parallel…`,
   });
 
-  const forecast = await runBlindForecast(market, resolvedModel);
+  const { merged: forecast, ensemble } = await runBlindEnsemble(
+    market,
+    resolvedModel,
+    runCount,
+    (completed, failed, probability) =>
+      emit({ type: "sample", completed, failed, total: runCount, probability }),
+  );
 
   emit({
     type: "stage",
     stage: "estimating",
-    message: `Independent estimate formed: ${forecast.probability}% (market price still hidden).`,
+    message:
+      ensemble.completed === 1
+        ? `Independent estimate formed: ${forecast.probability}% (market price still hidden).`
+        : `Averaged ${ensemble.completed} independent forecasts: ${forecast.probability}% ` +
+          `(range ${ensemble.min}–${ensemble.max}%, market price still hidden).`,
   });
 
   emit({
@@ -248,7 +449,13 @@ export async function runAnalysis({ market, model, onEvent }: RunAnalysisOptions
 
   emit({ type: "stage", stage: "reviewing", message: "Reviewing the discrepancy…" });
 
-  const review = await runDiscrepancyReview(market, forecast, polymarketProbability, resolvedModel);
+  const review = await runDiscrepancyReview(
+    market,
+    forecast,
+    polymarketProbability,
+    resolvedModel,
+    ensemble,
+  );
 
   const aiProbability = review.finalProbability;
 
@@ -278,6 +485,7 @@ export async function runAnalysis({ market, model, onEvent }: RunAnalysisOptions
     review,
     model: resolvedModel,
     webSearchEnabled: config.openRouter.webSearch,
+    ensemble,
     durationMs: Date.now() - startedAt,
   };
 
