@@ -102,17 +102,21 @@ export function AnalysisResult({ analysis, compact = false }: { analysis: Analys
         ) : (
           <ol className="flex flex-col gap-2">
             {analysis.sources.map((source, index) => (
-              <li key={`${source.url}-${index}`} className="text-sm">
+              <li key={`${source.url}-${index}`} className="min-w-0 text-sm">
                 <a
                   href={source.url}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="font-medium text-brand underline-offset-2 hover:underline"
+                  className="block break-words font-medium text-brand underline-offset-2 hover:underline"
                 >
-                  {source.title}
+                  {/* Titles are sometimes just the URL again; clamp so one source
+                      cannot take over the list. */}
+                  <span className="line-clamp-2">{source.title}</span>
                 </a>
-                <span className="ml-2 font-mono text-xs text-ink-3">{hostnameOf(source.url)}</span>
-                {source.note ? <p className="mt-0.5 text-ink-2">{source.note}</p> : null}
+                <span className="mt-0.5 block truncate font-mono text-xs text-ink-3">
+                  {hostnameOf(source.url)}
+                </span>
+                {source.note ? <p className="mt-0.5 break-words text-ink-2">{source.note}</p> : null}
               </li>
             ))}
           </ol>
@@ -123,7 +127,10 @@ export function AnalysisResult({ analysis, compact = false }: { analysis: Analys
         <dl className="hairline grid grid-cols-2 gap-4 border-t pt-4 sm:grid-cols-4">
           <Stat label="Researched" value={formatDateTime(analysis.createdAt)} />
           <Stat label="Market expiry" value={formatDate(analysis.marketEndDate)} />
-          <Stat label="Model" value={<span className="font-mono text-xs">{analysis.model}</span>} />
+          <Stat
+            label="Model"
+            value={<span className="block break-all font-mono text-xs">{analysis.model}</span>}
+          />
           <Stat
             label="Run time"
             value={formatDuration(analysis.durationMs)}
@@ -156,7 +163,7 @@ function Section({
   };
 
   return (
-    <section>
+    <section className="min-w-0">
       <h3 className={`mb-2 text-xs font-semibold uppercase tracking-wide ${accent[tone]}`}>{title}</h3>
       {children}
     </section>
@@ -169,11 +176,11 @@ function List({ items, emptyText }: { items: string[]; emptyText?: string }) {
   }
 
   return (
-    <ul className="flex flex-col gap-2">
+    <ul className="flex min-w-0 flex-col gap-2">
       {items.map((item, index) => (
-        <li key={index} className="flex gap-2.5 text-sm leading-relaxed text-ink-1">
+        <li key={index} className="flex min-w-0 gap-2.5 text-sm leading-relaxed text-ink-1">
           <span aria-hidden className="mt-2 size-1.5 shrink-0 rounded-full bg-ink-3" />
-          <span>{item}</span>
+          <span className="min-w-0 break-words">{item}</span>
         </li>
       ))}
     </ul>

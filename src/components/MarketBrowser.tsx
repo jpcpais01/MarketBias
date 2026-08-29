@@ -233,8 +233,12 @@ export function MarketBrowser({
       : `${markets.length} active market${markets.length === 1 ? "" : "s"}`;
 
   return (
-    <section className="flex flex-col gap-4 sm:gap-5">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+    <section className="flex flex-col gap-3 sm:gap-5">
+      {/*
+        Sticky under the app bar on phones, so search and sorting stay reachable
+        while scrolling a long market list. Static from `sm` upwards.
+      */}
+      <div className="sticky top-14 z-30 -mx-4 flex flex-col gap-2 border-b border-surface-3/40 bg-surface-0 px-4 py-2.5 sm:static sm:mx-0 sm:flex-row sm:items-center sm:gap-3 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
         <label className="relative flex-1">
           <span className="sr-only">Search markets</span>
           <svg
@@ -290,13 +294,9 @@ export function MarketBrowser({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <p className="text-xs text-ink-3">{heading}</p>
-        {runs > 1 ? (
-          <p className="text-xs text-ink-3">
-            {runs} forecasts averaged per research · {runs}× cost
-          </p>
-        ) : null}
+      <div className="flex min-w-0 items-baseline justify-between gap-3 text-xs text-ink-3">
+        <p className="min-w-0 truncate">{heading}</p>
+        {runs > 1 ? <p className="shrink-0">{runs}× cost per research</p> : null}
       </div>
 
       {error ? (
@@ -308,7 +308,7 @@ export function MarketBrowser({
       ) : null}
 
       {loading ? (
-        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => (
             <SkeletonCard key={index} />
           ))}
@@ -323,7 +323,7 @@ export function MarketBrowser({
           }
         />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
           {markets.map((market) => (
             <MarketCard
               key={market.id}

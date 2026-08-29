@@ -94,7 +94,7 @@ export function EmptyState({ title, message, action }: { title: string; message:
 
 export function SkeletonCard() {
   return (
-    <div className="panel animate-pulse p-5">
+    <div className="panel min-w-0 animate-pulse p-4 sm:p-5">
       <div className="h-3 w-24 rounded bg-surface-3/60" />
       <div className="mt-4 h-4 w-full rounded bg-surface-3/60" />
       <div className="mt-2 h-4 w-4/5 rounded bg-surface-3/60" />
@@ -109,9 +109,9 @@ export function SkeletonCard() {
 
 export function Stat({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex min-w-0 flex-col gap-0.5">
       <dt className="text-[0.7rem] font-medium uppercase tracking-wide text-ink-3">{label}</dt>
-      <dd className="text-sm font-medium text-ink-0">{value}</dd>
+      <dd className="min-w-0 break-words text-sm font-medium text-ink-0">{value}</dd>
       {hint ? <p className="text-xs text-ink-3">{hint}</p> : null}
     </div>
   );

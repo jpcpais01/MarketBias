@@ -81,7 +81,7 @@ export function AnalyzeDrawer({
         <div aria-hidden className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-surface-3 sm:hidden" />
 
         <header className="hairline flex items-start justify-between gap-3 border-b px-4 py-3.5 sm:px-5 sm:py-4">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-xs uppercase tracking-wide text-ink-3">
               {state.done && state.analysis
                 ? "Research complete"
@@ -89,7 +89,7 @@ export function AnalyzeDrawer({
                   ? `Researching · ${state.runs} parallel forecasts`
                   : "Researching market"}
             </p>
-            <h2 className="mt-1 line-clamp-2 text-[0.95rem] font-semibold leading-snug text-ink-0 sm:line-clamp-none sm:text-base">
+            <h2 className="mt-1 line-clamp-2 break-words text-[0.95rem] font-semibold leading-snug text-ink-0 sm:line-clamp-3 sm:text-base">
               {state.market.question}
             </h2>
           </div>
@@ -175,13 +175,13 @@ function StageProgress({
 
       {state.runs > 1 && settled > 0 ? (
         <div className="flex flex-col gap-2 rounded-xl bg-surface-2/60 px-4 py-3">
-          <div className="flex items-baseline justify-between text-xs">
-            <span className="text-ink-3">
+          <div className="flex min-w-0 items-baseline justify-between gap-2 text-xs">
+            <span className="min-w-0 truncate text-ink-3">
               {settled} of {state.runs} forecasts returned
               {state.failed > 0 ? ` · ${state.failed} failed` : ""}
             </span>
-            <span className="font-mono text-ink-1 tabular-nums">
-              {state.landed.map((value) => `${value}%`).join("  ")}
+            <span className="shrink-0 font-mono text-ink-1 tabular-nums">
+              {state.landed.map((value) => `${value}%`).join(" ")}
             </span>
           </div>
           <div className="flex gap-1">

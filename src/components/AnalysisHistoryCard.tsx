@@ -15,7 +15,7 @@ export function AnalysisHistoryCard({ analysis }: { analysis: Analysis }) {
   const bandTone = band === "aligned" ? "neutral" : band === "moderate" ? "warn" : "no";
 
   return (
-    <article className="panel overflow-hidden">
+    <article className="panel min-w-0 overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
@@ -27,7 +27,7 @@ export function AnalysisHistoryCard({ analysis }: { analysis: Analysis }) {
           <h3 className="mt-1 text-[0.95rem] font-medium leading-snug text-ink-0 sm:text-sm">
             {analysis.marketQuestion}
           </h3>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-1.5 sm:gap-2">
             <Badge tone="yes">Market {formatPercent(analysis.polymarketProbability)}</Badge>
             <Badge tone="ai">AI {formatPercent(analysis.aiProbability)}</Badge>
             <Badge tone={bandTone}>{formatSignedPoints(analysis.deviation)}</Badge>

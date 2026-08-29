@@ -42,7 +42,7 @@ export function MobileNav() {
   return (
     <nav
       aria-label="Primary"
-      className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-surface-3/60 bg-surface-1/95 backdrop-blur-lg sm:hidden"
+      className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-surface-3/60 bg-surface-1 sm:hidden"
     >
       <ul className="grid grid-cols-2">
         {TABS.map((tab) => {

@@ -25,41 +25,45 @@ export default async function DashboardPage() {
   return (
     <div className="flex flex-col gap-5 sm:gap-8">
       <section className="panel flex flex-col gap-3 p-4 sm:gap-4 sm:p-6">
-        {/* Badges scroll sideways on narrow screens rather than wrapping to three rows. */}
+        {/* Status chips scroll sideways rather than wrapping to three rows. */}
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 sm:mx-0 sm:flex-wrap sm:px-0">
           <Badge tone="brand" className="shrink-0">
             Blind forecasting
           </Badge>
-          <Badge tone="neutral" className="shrink-0">
-            <span className="font-mono">{summary.model}</span>
+          <Badge tone="neutral" className="min-w-0 max-w-[60%] shrink-0 sm:max-w-none">
+            {/* Model ids are long; end them with an ellipsis, not a hard cut. */}
+            <span className="min-w-0 truncate font-mono">{summary.model}</span>
           </Badge>
           {summary.webSearchEnabled ? (
             <Badge tone="neutral" className="shrink-0">
-              Web research on
+              Web research
             </Badge>
           ) : (
             <Badge tone="warn" className="shrink-0">
-              Web research off
+              No web research
             </Badge>
           )}
           {summary.sampleRuns > 1 ? (
             <Badge tone="ai" className="shrink-0">
-              {summary.sampleRuns} runs averaged
+              {summary.sampleRuns}× averaged
             </Badge>
           ) : null}
         </div>
 
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-ink-0 sm:text-3xl">
-            Where does the market disagree with the evidence?
-          </h1>
-          <p className="mt-2 text-sm leading-relaxed text-ink-2">
-            An AI forecaster commits to a probability <em>before</em> it sees the market price. The
-            gap is the signal.
-          </p>
-        </div>
+        <h1 className="text-lg font-semibold leading-snug tracking-tight text-ink-0 sm:text-3xl">
+          Where does the market disagree with the evidence?
+        </h1>
 
-        {/* Detail stays one tap away instead of filling the first screen. */}
+        {/*
+          On phones the explanation lives entirely behind this disclosure, so
+          the market list starts near the top of the screen instead of below a
+          block of prose. Desktop has the room to show the summary outright.
+        */}
+        <p className="hidden text-sm leading-relaxed text-ink-2 sm:block">
+          An AI forecaster commits to a probability <em>before</em> it sees the market price. The
+          gap is the signal.
+        </p>
+
         <details className="group">
           <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-brand">
             How it works
@@ -79,23 +83,20 @@ export default async function DashboardPage() {
             </svg>
           </summary>
           <ol className="mt-3 flex flex-col gap-2 text-sm leading-relaxed text-ink-2">
+            <li className="sm:hidden">
+              An AI forecaster commits to a probability <em>before</em> it sees the market price.
+              The gap is the signal.
+            </li>
             <li>
               <strong className="font-medium text-ink-1">Nothing runs automatically.</strong>{" "}
-              Browsing markets makes no AI calls — research starts only when you tap Research on a
-              market.
+              Browsing makes no AI calls — research starts only when you tap Research on a market.
             </li>
-            <li>
-              The model researches the web and commits to a probability with the market price
-              hidden from it.
-            </li>
+            <li>The model researches the web and estimates with the market price hidden from it.</li>
             <li>
               The price is then revealed for a review that is free to disagree — it must name a
               reason to change its mind.
             </li>
-            <li>
-              Run several forecasts in parallel to average out noise; the spread between them is
-              shown.
-            </li>
+            <li>Run several forecasts in parallel to average out noise; the spread is shown.</li>
           </ol>
         </details>
 

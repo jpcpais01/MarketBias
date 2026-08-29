@@ -78,7 +78,7 @@ export default async function HistoryPage() {
         />
       ) : null}
 
-      <div className="flex flex-col gap-3">
+      <div className="flex min-w-0 flex-col gap-3">
         {analyses.map((analysis) => (
           <AnalysisHistoryCard key={analysis.id} analysis={analysis} />
         ))}

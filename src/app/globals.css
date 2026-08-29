@@ -59,6 +59,34 @@ body {
   }
 }
 
+/*
+ * Long unbroken strings — market slugs, source URLs, model ids — must wrap
+ * rather than force their container wider than the screen.
+ *
+ * `anywhere` rather than `break-word`: only `anywhere` also shrinks an
+ * element's intrinsic min-content width, which is what stops a long URL from
+ * widening its grid track and pushing the page past the viewport. Both break
+ * a word only when it cannot fit on a line of its own, so the visible result
+ * in ordinary prose is identical.
+ */
+body {
+  overflow-wrap: anywhere;
+}
+
+/*
+ * Grid and flex children default to `min-width: auto`, which means they
+ * refuse to shrink below their content and push the page wider than the
+ * viewport. Cards opt out explicitly via `min-w-0`; this covers the rest.
+ */
+p,
+h1,
+h2,
+h3,
+li,
+dd {
+  min-width: 0;
+}
+
 /* Buttons and links should feel immediate to the touch. */
 button,
 a,
