@@ -50,6 +50,8 @@ export interface MarketListResult {
   markets: Market[];
   /** Offset to pass back for the next page, or null when the page was short. */
   nextOffset: number | null;
+  /** Markets withheld by the noise filter on this page. */
+  hidden?: number;
 }
 
 export type Confidence = "low" | "medium" | "high";
@@ -180,6 +182,12 @@ export type AnalysisStage =
 
 export type AnalysisEvent =
   | { type: "stage"; stage: AnalysisStage; message: string }
+  /**
+   * Sites a completed run consulted. Emitted per run: OpenRouter returns its
+   * citations with the finished completion, so these arrive as each parallel
+   * forecast lands rather than at the moment a page is fetched.
+   */
+  | { type: "sources"; runIndex: number; sources: Source[] }
   /** Emitted as each parallel forecast lands, for live ensemble progress. */
   | {
       type: "sample";

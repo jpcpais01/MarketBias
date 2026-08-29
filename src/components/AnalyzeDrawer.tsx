@@ -4,16 +4,17 @@ import { useEffect, useRef } from "react";
 
 import { AnalysisResult } from "@/components/AnalysisResult";
 import { ErrorState, Spinner } from "@/components/ui";
-import type { Analysis, AnalysisStage, Market } from "@/lib/types";
+import { hostnameOf } from "@/lib/format";
+import type { Analysis, AnalysisStage, Market, Source } from "@/lib/types";
 
 /** Ordered pipeline shown to the user; mirrors the server's emitted stages. */
 export const STAGE_SEQUENCE: { stage: AnalysisStage; label: string }[] = [
-  { stage: "fetching-market", label: "Reading the market question and resolution rules" },
-  { stage: "researching", label: "Researching evidence (market price hidden from the model)" },
-  { stage: "estimating", label: "Averaging the independent probability estimates" },
-  { stage: "revealing-market-price", label: "Revealing the Polymarket price" },
+  { stage: "fetching-market", label: "Reading the question and rules" },
+  { stage: "researching", label: "Researching (price hidden)" },
+  { stage: "estimating", label: "Averaging the estimates" },
+  { stage: "revealing-market-price", label: "Revealing the market price" },
   { stage: "reviewing", label: "Reviewing the discrepancy" },
-  { stage: "saving", label: "Saving the timestamped forecast" },
+  { stage: "saving", label: "Saving the forecast" },
 ];
 
 export interface AnalyzeState {
@@ -29,6 +30,8 @@ export interface AnalyzeState {
   failed: number;
   /** Probabilities of the runs that have landed so far. */
   landed: number[];
+  /** Sites consulted so far, de-duplicated across runs. */
+  sources: Source[];
 }
 
 export function AnalyzeDrawer({
@@ -142,7 +145,7 @@ function StageProgress({
         <span className="animate-sweep absolute inset-0" />
       </div>
 
-      <ol className="flex flex-col gap-3">
+      <ol className="flex flex-col gap-2.5">
         {STAGE_SEQUENCE.map((entry, index) => {
           const isDone = activeIndex > index;
           const isActive = activeIndex === index;
@@ -197,15 +200,49 @@ function StageProgress({
         </div>
       ) : null}
 
+      {state.sources.length > 0 ? <ResearchSources sources={state.sources} /> : null}
+
       <p aria-live="polite" className="rounded-xl bg-surface-2/60 px-4 py-3 text-sm text-ink-2">
         {message || "Starting…"}
       </p>
 
       <p className="text-xs leading-relaxed text-ink-3">
-        Research-grade forecasts take time — each run needs 30–120 seconds because the model
-        searches the web before committing to a number. Parallel runs happen at once, so more runs
-        cost more but take little extra time. Keep this panel open.
+        Each run takes 30–120 seconds — the model searches the web before committing to a number.
+        Parallel runs happen at once. Keep this panel open.
       </p>
     </div>
+  );
+}
+
+/**
+ * Sites the forecaster consulted, shown while the run is still in progress.
+ *
+ * OpenRouter reports citations with the finished completion rather than at
+ * fetch time, so this list fills in a run at a time rather than page by page.
+ */
+function ResearchSources({ sources }: { sources: Source[] }) {
+  return (
+    <section className="flex flex-col gap-2">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
+        Sites consulted ({sources.length})
+      </h3>
+      <ul className="flex flex-col gap-1.5">
+        {sources.map((source) => (
+          <li key={source.url} className="min-w-0">
+            <a
+              href={source.url}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="flex min-w-0 items-baseline gap-2 rounded-lg px-2 py-1.5 transition hover:bg-surface-2/60"
+            >
+              <span className="shrink-0 font-mono text-[0.7rem] text-brand">
+                {hostnameOf(source.url)}
+              </span>
+              <span className="min-w-0 truncate text-xs text-ink-2">{source.title}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

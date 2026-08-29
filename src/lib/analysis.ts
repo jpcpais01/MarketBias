@@ -267,21 +267,27 @@ async function runBlindEnsemble(
   market: Market,
   model: string,
   count: number,
-  onSample: (completed: number, failed: number, probability: number | null) => void,
+  onSample: (
+    completed: number,
+    failed: number,
+    probability: number | null,
+    sources: Source[],
+    runIndex: number,
+  ) => void,
 ) {
   let completed = 0;
   let failed = 0;
 
   const settled = await Promise.allSettled(
-    Array.from({ length: count }, async () => {
+    Array.from({ length: count }, async (_unused, runIndex) => {
       const forecast = await runBlindForecast(market, model);
       completed += 1;
-      onSample(completed, failed, forecast.probability);
+      onSample(completed, failed, forecast.probability, forecast.sources, runIndex);
       return forecast;
     }).map((promise) =>
       promise.catch((error: unknown) => {
         failed += 1;
-        onSample(completed, failed, null);
+        onSample(completed, failed, null, [], -1);
         throw error;
       }),
     ),
@@ -424,8 +430,10 @@ export async function runAnalysis({
     market,
     resolvedModel,
     runCount,
-    (completed, failed, probability) =>
-      emit({ type: "sample", completed, failed, total: runCount, probability }),
+    (completed, failed, probability, sources, runIndex) => {
+      if (sources.length > 0) emit({ type: "sources", runIndex, sources });
+      emit({ type: "sample", completed, failed, total: runCount, probability });
+    },
   );
 
   emit({

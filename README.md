@@ -24,6 +24,35 @@ Stage 1 and 2 prompts are built by `src/lib/prompts.ts`, which constructs market
 
 Both numbers are kept: the **blind** estimate and the **post-review** estimate. When a review revises the forecast, the UI marks where the blind estimate sat, so anchoring is visible rather than hidden.
 
+### What is sent to the model
+
+The full market record is fetched from Gamma, but stage 1 receives only the
+non-price fields — assembled by a whitelist in `src/lib/prompts.ts`, so a new
+price field cannot leak in by being added to the type:
+
+| Sent to the blind forecaster | Withheld until stage 2 |
+|---|---|
+| Question (verbatim) | YES probability / outcome prices |
+| **Full description and resolution criteria** | Best bid, best ask, spread |
+| Resolution source, when published | Last trade price, 24h price change |
+| Resolution date and days remaining | — |
+| Outcome labels, parent event title | — |
+
+The description matters most: markets frequently resolve on wording stricter
+than the headline question, and the prompt tells the model to read it for
+exactly that. It is sent in full, untruncated.
+
+### Filtering out noisy markets
+
+Polymarket carries a long tail of recurring markets — daily temperature,
+hourly "up or down" crypto ticks, tweet counts — that crowd out questions
+worth researching. These are hidden by default and the dashboard shows how
+many, with one tap to reveal them.
+
+The keyword list lives in `src/lib/filters.ts` and is matched against the
+question and event title. Replace it wholesale with `MARKET_EXCLUDE_KEYWORDS`
+(comma-separated), or turn filtering off with `MARKET_FILTER_NOISE=false`.
+
 ### Averaging several runs
 
 A single LLM forecast is noisy — the same question asked twice can differ by 15 points. The **runs** selector on the dashboard runs N independent forecasts *in parallel* and averages them.
@@ -111,6 +140,7 @@ src/
     ├── polymarket.ts               Gamma API client + defensive normalisation
     ├── openrouter.ts               Chat client + tolerant JSON extraction
     ├── prompts.ts                  The two-stage prompts (price withheld in stage 1)
+    ├── filters.ts                  Keyword filter for recurring noisy markets
     ├── analysis.ts                 Workflow orchestration + coercion
     ├── format.ts                   Shared display formatting
     └── store/                      Append-only persistence (3 drivers)
@@ -141,7 +171,7 @@ Every analysis is saved under a fresh UUID and pushed onto a history list. **Not
 
 | Endpoint | Description |
 |---|---|
-| `GET /api/markets?q=&limit=&offset=&order=&ascending=` | Active binary markets. `q` filters a bounded pool of top-volume markets. |
+| `GET /api/markets?q=&limit=&offset=&order=&ascending=&includeNoisy=` | Active binary markets, noisy ones excluded. `q` filters a bounded pool of top-volume markets; `includeNoisy=true` bypasses the keyword filter. Responses carry `hidden`, the number withheld. |
 | `GET /api/markets/:id` | One market, normalised. |
 | `POST /api/analyze` `{ marketId, model?, runs? }` | Runs the workflow. Streams NDJSON: `{type:"stage"}` and `{type:"sample"}` events, then `{type:"result"}` or `{type:"error"}`. `model` overrides `OPENROUTER_MODEL`; `runs` overrides `ANALYSIS_SAMPLE_RUNS`, clamped server-side to `ANALYSIS_MAX_SAMPLE_RUNS`. |
 | `GET /api/analyses?marketId=&limit=&offset=` | Saved forecasts, newest first. |

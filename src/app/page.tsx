@@ -130,6 +130,7 @@ export default async function DashboardPage() {
         recentAnalyses={recent}
         defaultRuns={summary.sampleRuns}
         maxRuns={summary.maxSampleRuns}
+        noiseFilterActive={summary.filterNoise}
       />
     </div>
   );

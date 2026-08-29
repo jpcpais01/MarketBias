@@ -30,9 +30,16 @@ interface Listing {
   markets: Market[];
   nextOffset: number | null;
   error: string | null;
+  /** Markets withheld by the noise filter, for the "show all" affordance. */
+  hidden: number;
 }
 
-async function fetchMarkets(query: string, sort: SortKey, offset: number): Promise<MarketListResult> {
+async function fetchMarkets(
+  query: string,
+  sort: SortKey,
+  offset: number,
+  includeNoisy: boolean,
+): Promise<MarketListResult> {
   const sortConfig = SORTS.find((s) => s.key === sort) ?? SORTS[0];
   const params = new URLSearchParams({
     limit: String(PAGE_SIZE),
@@ -41,6 +48,7 @@ async function fetchMarkets(query: string, sort: SortKey, offset: number): Promi
     ascending: String(sortConfig.ascending),
   });
   if (query) params.set("q", query);
+  if (includeNoisy) params.set("includeNoisy", "true");
 
   const response = await fetch(`/api/markets?${params}`, { cache: "no-store" });
   const payload = (await response.json()) as MarketListResult & { error?: string };
@@ -55,17 +63,21 @@ export function MarketBrowser({
   recentAnalyses,
   defaultRuns,
   maxRuns,
+  noiseFilterActive,
 }: {
   recentAnalyses: Analysis[];
   /** Server default from ANALYSIS_SAMPLE_RUNS. */
   defaultRuns: number;
   /** Server ceiling from ANALYSIS_MAX_SAMPLE_RUNS. */
   maxRuns: number;
+  /** Whether MARKET_FILTER_NOISE is on, so the toggle is worth showing. */
+  noiseFilterActive: boolean;
 }) {
   const [rawQuery, setRawQuery] = useState("");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("volume24hr");
   const [runs, setRuns] = useState<number>(defaultRuns);
+  const [includeNoisy, setIncludeNoisy] = useState(false);
   // Bumped to force a refetch of the current key (the retry button).
   const [reloadToken, setReloadToken] = useState(0);
 
@@ -86,9 +98,10 @@ export function MarketBrowser({
     .filter((choice) => choice >= 1 && choice <= maxRuns)
     .sort((a, b) => a - b);
 
-  const key = `${reloadToken}|${sort}|${query}`;
+  const key = `${reloadToken}|${sort}|${query}|${includeNoisy}`;
   const loading = listing?.key !== key;
   const markets = loading ? [] : (listing?.markets ?? []);
+  const hiddenCount = loading ? 0 : (listing?.hidden ?? 0);
   const error = loading ? null : (listing?.error ?? null);
 
   // Debounce the search box so typing does not fire a request per keystroke.
@@ -103,15 +116,22 @@ export function MarketBrowser({
 
     void (async () => {
       try {
-        const payload = await fetchMarkets(query, sort, 0);
+        const payload = await fetchMarkets(query, sort, 0, includeNoisy);
         if (cancelled) return;
-        setListing({ key, markets: payload.markets, nextOffset: payload.nextOffset, error: null });
+        setListing({
+          key,
+          markets: payload.markets,
+          nextOffset: payload.nextOffset,
+          error: null,
+          hidden: payload.hidden ?? 0,
+        });
       } catch (cause) {
         if (cancelled) return;
         setListing({
           key,
           markets: [],
           nextOffset: null,
+          hidden: 0,
           error: cause instanceof Error ? cause.message : "Failed to load markets.",
         });
       }
@@ -120,7 +140,7 @@ export function MarketBrowser({
     return () => {
       cancelled = true;
     };
-  }, [key, query, sort]);
+  }, [key, query, sort, includeNoisy]);
 
   const loadMore = useCallback(async () => {
     if (!listing || listing.nextOffset === null) return;
@@ -128,13 +148,14 @@ export function MarketBrowser({
     setLoadingMore(true);
     setMoreError(null);
     try {
-      const payload = await fetchMarkets(query, sort, listing.nextOffset);
+      const payload = await fetchMarkets(query, sort, listing.nextOffset, includeNoisy);
       setListing((current) =>
         current && current.key === listing.key
           ? {
               ...current,
               markets: dedupe([...current.markets, ...payload.markets]),
               nextOffset: payload.nextOffset,
+              hidden: current.hidden + (payload.hidden ?? 0),
             }
           : current,
       );
@@ -143,7 +164,7 @@ export function MarketBrowser({
     } finally {
       setLoadingMore(false);
     }
-  }, [listing, query, sort]);
+  }, [listing, query, sort, includeNoisy]);
 
   const startResearch = useCallback(
     (market: Market) => {
@@ -162,6 +183,7 @@ export function MarketBrowser({
         completed: 0,
         failed: 0,
         landed: [],
+        sources: [],
       });
 
     void streamAnalysis({ marketId: market.id, runs }, (event) => {
@@ -171,6 +193,14 @@ export function MarketBrowser({
             ? { ...current, stage: event.stage, message: event.message }
             : current,
         );
+      } else if (event.type === "sources") {
+        setAnalyze((current) => {
+          if (!current || current.market.id !== market.id) return current;
+          // De-duplicate by URL: parallel runs often cite the same page.
+          const seen = new Set(current.sources.map((source) => source.url));
+          const added = event.sources.filter((source) => !seen.has(source.url));
+          return added.length === 0 ? current : { ...current, sources: [...current.sources, ...added] };
+        });
       } else if (event.type === "sample") {
         setAnalyze((current) =>
           current && current.market.id === market.id
@@ -298,6 +328,22 @@ export function MarketBrowser({
         <p className="min-w-0 truncate">{heading}</p>
         {runs > 1 ? <p className="shrink-0">{runs}× cost per research</p> : null}
       </div>
+
+      {noiseFilterActive && (hiddenCount > 0 || includeNoisy) ? (
+        <button
+          type="button"
+          onClick={() => setIncludeNoisy((value) => !value)}
+          className="flex items-center gap-2 self-start rounded-full border border-surface-3/70 px-3 py-1.5 text-xs text-ink-2 transition hover:bg-surface-2/70 hover:text-ink-0"
+        >
+          <span
+            aria-hidden
+            className={`size-1.5 rounded-full ${includeNoisy ? "bg-warn" : "bg-yes"}`}
+          />
+          {includeNoisy
+            ? "Showing every market, including weather and hourly ticks"
+            : `${hiddenCount} noisy market${hiddenCount === 1 ? "" : "s"} hidden — show all`}
+        </button>
+      ) : null}
 
       {error ? (
         <ErrorState

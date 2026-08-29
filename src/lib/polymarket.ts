@@ -8,6 +8,7 @@
  */
 
 import { config } from "@/lib/env";
+import { applyNoiseFilter, parseExcludeKeywords } from "@/lib/filters";
 import type { Market, MarketListResult } from "@/lib/types";
 
 export class PolymarketError extends Error {
@@ -188,6 +189,8 @@ export interface ListMarketsParams {
   /** Gamma sort key, e.g. "volume24hr", "volume", "liquidity", "endDate". */
   order?: string;
   ascending?: boolean;
+  /** Include recurring low-information markets that are hidden by default. */
+  includeNoisy?: boolean;
 }
 
 const SEARCH_POOL_SIZE = 500;
@@ -245,13 +248,22 @@ export async function listMarkets(params: ListMarketsParams = {}): Promise<Marke
   const ascending = params.ascending ?? false;
   const query = params.query?.trim();
 
+  // An empty keyword list (filtering off) makes applyNoiseFilter a no-op.
+  const keywords =
+    config.markets.filterNoise && !params.includeNoisy
+      ? parseExcludeKeywords(config.markets.excludeKeywords)
+      : [];
+
   if (!query) {
-    // Over-fetch so post-filtering (non-binary markets) still fills the page.
-    const raw = await fetchMarketPage(Math.min(limit * 3, 100), offset, order, ascending);
-    const markets = raw.filter((m) => isBinary(m) && isTradeable(m));
+    // Over-fetch so post-filtering (non-binary and noisy markets) still fills a page.
+    const pageSize = Math.min(limit * 3, 100);
+    const raw = await fetchMarketPage(pageSize, offset, order, ascending);
+    const tradeable = raw.filter((m) => isBinary(m) && isTradeable(m));
+    const { kept, hidden } = applyNoiseFilter(tradeable, keywords);
     return {
-      markets: markets.slice(0, limit),
-      nextOffset: raw.length === 0 ? null : offset + Math.min(limit * 3, 100),
+      markets: kept.slice(0, limit),
+      nextOffset: raw.length === 0 ? null : offset + pageSize,
+      hidden,
     };
   }
 
@@ -263,9 +275,11 @@ export async function listMarkets(params: ListMarketsParams = {}): Promise<Marke
   }
 
   const matches = pool.filter((m) => isBinary(m) && isTradeable(m) && matchesQuery(m, query));
+  const { kept, hidden } = applyNoiseFilter(matches, keywords);
   return {
-    markets: matches.slice(offset, offset + limit),
-    nextOffset: offset + limit < matches.length ? offset + limit : null,
+    markets: kept.slice(offset, offset + limit),
+    nextOffset: offset + limit < kept.length ? offset + limit : null,
+    hidden,
   };
 }
 

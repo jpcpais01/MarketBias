@@ -51,6 +51,15 @@ export const config = {
     jsonMode: bool("OPENROUTER_JSON_MODE", false),
     timeoutMs: int("OPENROUTER_TIMEOUT_MS", 240_000),
   },
+  markets: {
+    /** Hide recurring low-information markets (weather, hourly ticks, …). */
+    filterNoise: bool("MARKET_FILTER_NOISE", true),
+    /**
+     * Comma-separated exclusion keywords. Unset uses the built-in list; an
+     * explicitly empty value disables keyword filtering.
+     */
+    excludeKeywords: process.env.MARKET_EXCLUDE_KEYWORDS,
+  },
   analysis: {
     /** Default number of parallel blind forecasts to average per research run. */
     sampleRuns: int("ANALYSIS_SAMPLE_RUNS", 1),
@@ -91,5 +100,6 @@ export function publicConfigSummary() {
     openRouterConfigured: Boolean(config.openRouter.apiKey),
     sampleRuns: config.analysis.sampleRuns,
     maxSampleRuns: config.analysis.maxSampleRuns,
+    filterNoise: config.markets.filterNoise,
   };
 }

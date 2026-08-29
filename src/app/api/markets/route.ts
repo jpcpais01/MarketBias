@@ -19,6 +19,7 @@ export async function GET(request: Request) {
       offset: Number.isFinite(offset) ? offset : 0,
       order: searchParams.get("order") ?? undefined,
       ascending: searchParams.get("ascending") === "true",
+      includeNoisy: searchParams.get("includeNoisy") === "true",
     });
     return NextResponse.json(result);
   } catch (error) {
